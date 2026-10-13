@@ -21,6 +21,10 @@ T readField<T>(Map<String, dynamic> json, String key) {
 Duration readDuration(Map<String, dynamic> json, String key) =>
     Duration(microseconds: readField<int>(json, key));
 
+/// Như [readDuration] nhưng cho phép trường vắng mặt hoặc null.
+Duration? readNullableDuration(Map<String, dynamic> json, String key) =>
+    json[key] == null ? null : readDuration(json, key);
+
 /// DateTime được lưu dạng chuỗi ISO-8601 UTC.
 ///
 /// Vì sao: đọc được bằng mắt khi debug/export, và UTC không bị ảnh hưởng bởi
