@@ -1,8 +1,6 @@
 import '../models/lap.dart';
 import '../models/task_snapshot.dart';
 
-// Vì sao export: UI chỉ cần import một file này là có đủ mọi kiểu trong hợp
-// đồng, không phải biết cấu trúc thư mục bên trong core.
 export '../models/lap.dart';
 export '../models/task_snapshot.dart';
 export '../models/task_status.dart';
@@ -10,6 +8,9 @@ export '../storage/task_repository.dart' show StorageException;
 export 'stopwatch_exceptions.dart';
 
 /// Hợp đồng nghiệp vụ để UI điều khiển nhiều đồng hồ chạy song song.
+///
+/// File này export luôn models, exception và `StorageException`, nên UI chỉ
+/// cần import một file là có đủ mọi kiểu trong hợp đồng.
 ///
 /// Vì sao là `abstract interface class`: UI chỉ phụ thuộc hợp đồng này, nên
 /// đổi implementation (thật, giả lập độ trễ, mock khi test widget) không phải
