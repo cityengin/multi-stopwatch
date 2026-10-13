@@ -1,6 +1,9 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:multi_stopwatch/core/debug/stream_tracker.dart';
 import 'package:multi_stopwatch/core/ticker/tick_source.dart';
+
+import '../support/fake_time_sources.dart';
 
 const _interval = Duration(milliseconds: 100);
 
@@ -167,6 +170,59 @@ void main() {
         expect(received, isEmpty);
         expect(source.isTicking, isFalse);
         expect(async.periodicTimerCount, 0);
+      });
+    });
+  });
+
+  group('TickSource với StreamTracker', () {
+    test('mỗi listener của ticks được đếm; hết listener thì về 0 và Timer '
+        'dừng', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final source = TickSource(interval: _interval, tracker: tracker);
+        final first = source.ticks.listen((_) {});
+        final second = source.ticks.listen((_) {});
+
+        expect(tracker.activeBySource, {'TickSource.ticks': 2});
+        expect(source.hasListener, isTrue);
+        async.elapse(_interval * 2);
+        first.cancel();
+        second.cancel();
+        async.flushMicrotasks();
+
+        expect(tracker.activeCount, 0);
+        expect(source.hasListener, isFalse);
+        expect(source.isTicking, isFalse);
+        expect(async.periodicTimerCount, 0);
+        source.dispose();
+      });
+    });
+
+    test('dispose: listener nhận done, hasListener == false, không còn Timer, '
+        'số subscription về 0, log có dispose', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final source = TickSource(interval: _interval, tracker: tracker);
+        var done = false;
+        source.ticks.listen((_) {}, onDone: () => done = true);
+        async.elapse(_interval * 3);
+
+        source.dispose();
+        async.flushMicrotasks();
+
+        expect(done, isTrue);
+        expect(source.hasListener, isFalse);
+        expect(source.isTicking, isFalse);
+        expect(async.pendingTimers, isEmpty);
+        expect(tracker.activeCount, 0);
+        expect(
+          [for (final e in tracker.history) (e.kind, e.source, e.activeCount)],
+          [
+            (StreamLogKind.listen, 'TickSource.ticks', 1),
+            (StreamLogKind.done, 'TickSource.ticks', 0),
+            (StreamLogKind.dispose, 'TickSource', 0),
+          ],
+        );
       });
     });
   });

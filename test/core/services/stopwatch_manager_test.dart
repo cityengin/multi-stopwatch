@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:multi_stopwatch/core/debug/stream_tracker.dart';
 import 'package:multi_stopwatch/core/models/stopwatch_task.dart';
 import 'package:multi_stopwatch/core/services/stopwatch_manager.dart';
 import 'package:multi_stopwatch/core/services/stopwatch_service.dart';
@@ -75,14 +76,20 @@ StopwatchManager _open(
   FakeAsync async, {
   TaskRepository? repository,
   TickSource? tickSource,
+  StreamTracker? tracker,
 }) => _settle(
   async,
   StopwatchManager.open(
     repository: repository ?? InMemoryTaskRepository(),
     tickSource: tickSource,
     timeSource: FakeAsyncTimeSource(async),
+    tracker: tracker,
   ),
 );
+
+List<(StreamLogKind, String, int)> _rows(Iterable<StreamLogEvent> events) => [
+  for (final event in events) (event.kind, event.source, event.activeCount),
+];
 
 String _create(
   FakeAsync async,
@@ -1045,6 +1052,146 @@ void main() {
         expect(received.values, isNotEmpty);
         received.subscription.cancel();
         _settle(async, ticks.dispose());
+      });
+    });
+  });
+
+  group('hủy luồng an toàn (StreamTracker)', () {
+    test('sau dispose: hasListener == false, không còn Timer, số subscription '
+        'active về 0, không phát sự kiện nào sau khi đóng', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final ticks = TickSource(tracker: tracker);
+        final repository = InMemoryTaskRepository();
+        final manager = _open(
+          async,
+          repository: repository,
+          tickSource: ticks,
+          tracker: tracker,
+        );
+        final a = _create(async, manager, 'A');
+        final b = _create(async, manager, 'B');
+        final c = _create(async, manager, 'C');
+        _settle(async, manager.start(a));
+        _settle(async, manager.start(b));
+        final recorders = <_Recorder<Object?>>[
+          _Recorder(manager.tasksStream),
+          _Recorder(manager.tasksStream),
+          _Recorder(manager.elapsedStream(a)),
+          _Recorder(manager.elapsedStream(b)),
+          _Recorder(manager.elapsedStream(c)),
+        ];
+        async.elapse(const Duration(milliseconds: 500));
+
+        expect(tracker.activeBySource, {
+          'tasksStream': 2,
+          'elapsedStream:$a': 1,
+          'elapsedStream:$b': 1,
+          'elapsedStream:$c': 1,
+          'TickSource.ticks': 2,
+        });
+        expect(ticks.hasListener, isTrue);
+        expect(async.periodicTimerCount, 1);
+
+        repository.latency = const Duration(milliseconds: 200);
+        final pendingLap = manager.lap(a);
+        final disposed = manager.dispose();
+        async.elapse(const Duration(seconds: 1));
+        _settle(async, disposed);
+        final lap = _settle(async, pendingLap);
+
+        expect(tracker.activeCount, 0);
+        expect(tracker.activeBySource, isEmpty);
+        expect(ticks.hasListener, isFalse);
+        expect(ticks.isTicking, isFalse);
+        expect(async.periodicTimerCount, 0);
+        expect(async.pendingTimers, isEmpty);
+        expect(recorders.every((r) => r.done), isTrue);
+        expect(recorders.expand((r) => r.errors), isEmpty);
+        expect(
+          (tracker.history.last.kind, tracker.history.last.source),
+          (StreamLogKind.dispose, 'StopwatchManager'),
+        );
+        repository.latency = Duration.zero;
+        expect(_settle(async, repository.loadAll()).first.laps, [lap]);
+
+        final counts = [for (final r in recorders) r.values.length];
+        final logLength = tracker.history.length;
+        async.elapse(const Duration(seconds: 5));
+        expect([for (final r in recorders) r.values.length], counts);
+        expect(tracker.history, hasLength(logLength));
+        _settle(async, ticks.dispose());
+      });
+    });
+
+    test('TickSource tự tạo cũng bị dispose; log ghi đúng thứ tự hủy', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final manager = _open(async, tracker: tracker);
+        final id = _create(async, manager);
+        _settle(async, manager.start(id));
+        final elapsed = _Recorder(manager.elapsedStream(id));
+        async.elapse(const Duration(milliseconds: 100));
+        _settle(async, manager.dispose());
+
+        expect(elapsed.done, isTrue);
+        expect(tracker.activeCount, 0);
+        expect(async.periodicTimerCount, 0);
+        expect(_rows(tracker.history), [
+          (StreamLogKind.listen, 'elapsedStream:$id', 1),
+          (StreamLogKind.listen, 'TickSource.ticks', 2),
+          (StreamLogKind.cancel, 'TickSource.ticks', 1),
+          (StreamLogKind.done, 'elapsedStream:$id', 0),
+          (StreamLogKind.dispose, 'TickSource', 0),
+          (StreamLogKind.dispose, 'StopwatchManager', 0),
+        ]);
+      });
+    });
+
+    test('gọi dispose nhiều lần, kể cả đồng thời, chỉ dọn dẹp một lần', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final manager = _open(async, tracker: tracker);
+        final first = manager.dispose();
+        final second = manager.dispose();
+        _settle(async, first);
+        final third = manager.dispose();
+        _settle(async, third);
+
+        expect(identical(first, second), isTrue);
+        expect(identical(second, third), isTrue);
+        expect(
+          [
+            for (final e in tracker.history)
+              if (e.kind == StreamLogKind.dispose) e.source,
+          ],
+          ['TickSource', 'StopwatchManager'],
+        );
+      });
+    });
+
+    test('listener đang pause lúc dispose: không có sự kiện nào phát vào '
+        'controller đã đóng; resume thì nhận done và tracker về 0', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final manager = _open(async, tracker: tracker);
+        final id = _create(async, manager);
+        _settle(async, manager.start(id));
+        final elapsed = _Recorder(manager.elapsedStream(id));
+        async.elapse(const Duration(milliseconds: 100));
+        elapsed.subscription.pause();
+        _settle(async, manager.dispose());
+
+        expect(elapsed.done, isFalse);
+        expect(tracker.activeBySource, {'elapsedStream:$id': 1});
+        expect(async.periodicTimerCount, 0);
+        final valuesBefore = elapsed.values.length;
+        elapsed.subscription.resume();
+        async.flushMicrotasks();
+
+        expect(elapsed.done, isTrue);
+        expect(elapsed.values, hasLength(valuesBefore));
+        expect(tracker.activeCount, 0);
       });
     });
   });
