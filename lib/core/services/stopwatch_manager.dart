@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../debug/stream_tracker.dart';
 import '../models/stopwatch_task.dart';
 import '../storage/task_repository.dart';
 import '../ticker/elapsed_tracker.dart';
@@ -27,6 +28,9 @@ import 'stopwatch_service.dart';
 /// - Khôi phục sau khi khởi động lại dựa trên timestamp: đồng hồ đang chạy được
 ///   dựng lại từ `accumulated` và `runningSince` đã lưu, nên thời gian app bị
 ///   tắt cũng được tính.
+/// - Hủy luồng an toàn: [dispose] chờ lệnh đang dở, hủy mọi subscription tick,
+///   phát done cho mọi listener rồi mới dispose [TickSource] tự tạo. Sau đó
+///   không còn Timer, không còn subscription, và không phát thêm sự kiện nào.
 class StopwatchManager implements StopwatchService {
   /// Nhận mọi dependency từ bên ngoài (dependency injection): nơi lưu
   /// [repository], nguồn nhịp [tickSource], nguồn thời gian [timeSource]; nhờ
@@ -39,12 +43,17 @@ class StopwatchManager implements StopwatchService {
   ///
   /// [tickSource] được truyền vào thì manager không dispose nó (nơi tạo tự
   /// quản lý); bỏ trống thì manager tự tạo và tự dispose.
+  ///
+  /// [tracker] (tùy chọn) đếm và ghi log subscription của `tasksStream` và
+  /// `elapsedStream:<taskId>`; nó cũng được truyền cho [TickSource] tự tạo.
+  /// Manager không dispose [tracker] vì nơi tạo (màn Debug) còn đọc log sau đó.
   StopwatchManager({
     required this._repository,
     List<StopwatchTask> initialTasks = const [],
     TickSource? tickSource,
     TimeSource? timeSource,
-  }) : _tickSource = tickSource ?? TickSource(),
+    this._tracker,
+  }) : _tickSource = tickSource ?? TickSource(tracker: _tracker),
        _ownsTickSource = tickSource == null,
        _time = timeSource ?? SystemTimeSource() {
     for (final task in initialTasks) {
@@ -59,17 +68,20 @@ class StopwatchManager implements StopwatchService {
     required TaskRepository repository,
     TickSource? tickSource,
     TimeSource? timeSource,
+    StreamTracker? tracker,
   }) async => StopwatchManager(
     repository: repository,
     initialTasks: await repository.loadAll(),
     tickSource: tickSource,
     timeSource: timeSource,
+    tracker: tracker,
   );
 
   final TaskRepository _repository;
   final TickSource _tickSource;
   final bool _ownsTickSource;
   final TimeSource _time;
+  final StreamTracker? _tracker;
 
   /// Map giữ thứ tự chèn nên danh sách luôn theo thứ tự tạo.
   final Map<String, _TaskEntry> _entries = {};
@@ -86,36 +98,43 @@ class StopwatchManager implements StopwatchService {
   ]);
 
   @override
-  late final Stream<List<TaskSnapshot>> tasksStream = Stream.multi((
-    controller,
-  ) {
-    if (_isDisposed) {
-      controller.close();
-      return;
-    }
-    final sink = _LatestValueSink(controller);
-    _taskSinks.add(sink);
-    sink.emit(currentTasks);
-    controller
-      ..onCancel = () {
-        _taskSinks.remove(sink);
+  late final Stream<List<TaskSnapshot>> tasksStream = _track(
+    'tasksStream',
+    Stream.multi((controller) {
+      if (_isDisposed) {
+        controller.close();
+        return;
       }
-      ..onResume = () => sink.emit(currentTasks);
-  }, isBroadcast: true);
+      final sink = _LatestValueSink(controller);
+      _taskSinks.add(sink);
+      sink.emit(currentTasks);
+      controller
+        ..onCancel = () {
+          _taskSinks.remove(sink);
+        }
+        ..onResume = () => sink.emit(currentTasks);
+    }, isBroadcast: true),
+  );
 
   @override
-  Stream<Duration> elapsedStream(String taskId) => Stream.multi((controller) {
-    final entry = _entries[taskId];
-    if (_isDisposed) {
-      controller.close();
-    } else if (entry == null) {
-      controller
-        ..addError(TaskNotFoundException(taskId))
-        ..close();
-    } else {
-      entry.addListener(controller);
-    }
-  }, isBroadcast: true);
+  Stream<Duration> elapsedStream(String taskId) => _track(
+    'elapsedStream:$taskId',
+    Stream.multi((controller) {
+      final entry = _entries[taskId];
+      if (_isDisposed) {
+        controller.close();
+      } else if (entry == null) {
+        controller
+          ..addError(TaskNotFoundException(taskId))
+          ..close();
+      } else {
+        entry.addListener(controller);
+      }
+    }, isBroadcast: true),
+  );
+
+  Stream<T> _track<T>(String source, Stream<T> stream) =>
+      _tracker?.track(source, stream) ?? stream;
 
   @override
   Future<TaskSnapshot> createTask({
@@ -222,6 +241,7 @@ class StopwatchManager implements StopwatchService {
       sink.close();
     }
     if (_ownsTickSource) await _tickSource.dispose();
+    _tracker?.recordDispose('StopwatchManager');
   }
 
   /// Xếp [command] vào hàng đợi; mọi lỗi (kể cả lỗi ném đồng bộ trong

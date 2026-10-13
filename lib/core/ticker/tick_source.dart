@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../debug/stream_tracker.dart';
+
 /// Nguồn nhịp dùng chung cho mọi đồng hồ: phát một sự kiện sau mỗi [interval].
 ///
 /// Vì sao một nguồn chung thay vì mỗi đồng hồ một Timer: N đồng hồ chạy song
@@ -16,8 +18,10 @@ import 'dart:async';
 /// thời gian: Timer có thể bị trễ hoặc bỏ nhịp, nên elapsed phải được tính từ
 /// đồng hồ thật tại lúc nhận tick.
 class TickSource {
-  /// [interval] phải lớn hơn 0.
-  TickSource({this.interval = defaultInterval})
+  /// [interval] phải lớn hơn 0. [tracker] (tùy chọn) đếm và ghi log mọi
+  /// subscription của [ticks] dưới tên `TickSource.ticks`, để màn Debug thấy
+  /// ai đang giữ Timer chạy.
+  TickSource({this.interval = defaultInterval, this._tracker})
     : assert(interval > Duration.zero, 'interval phải lớn hơn 0');
 
   /// ~30 lần/giây: đủ mượt để hiển thị phần trăm giây, nhẹ hơn 60 lần/giây
@@ -27,10 +31,16 @@ class TickSource {
   /// Chu kỳ giữa hai tick.
   final Duration interval;
 
+  final StreamTracker? _tracker;
+
   late final StreamController<int> _controller = StreamController.broadcast(
     onListen: _startTimer,
     onCancel: _stopTimer,
   );
+
+  late final Stream<int> _ticks =
+      _tracker?.track('TickSource.ticks', _controller.stream) ??
+      _controller.stream;
 
   Timer? _timer;
   Future<void>? _disposeFuture;
@@ -42,10 +52,13 @@ class TickSource {
   /// Giá trị là `Timer.tick`: số chu kỳ đã trôi qua kể từ khi Timer khởi động
   /// (đếm lại từ 1 mỗi lần Timer chạy lại; có thể nhảy cóc khi Timer bị trễ).
   /// Chỉ dùng để đếm/debug, không dùng để tính thời gian.
-  Stream<int> get ticks => _controller.stream;
+  Stream<int> get ticks => _ticks;
 
   /// Timer có đang chạy không; dùng cho test và màn Debug.
   bool get isTicking => _timer != null;
+
+  /// Còn ai đang nghe [ticks] không; dùng cho test và màn Debug.
+  bool get hasListener => _controller.hasListener;
 
   void _startTimer() {
     _timer ??= Timer.periodic(interval, (timer) => _controller.add(timer.tick));
@@ -65,5 +78,6 @@ class TickSource {
   Future<void> _dispose() async {
     _stopTimer();
     await _controller.close();
+    _tracker?.recordDispose('TickSource');
   }
 }
