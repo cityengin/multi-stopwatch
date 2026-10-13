@@ -9,8 +9,9 @@ import 'package:multi_stopwatch/core/storage/in_memory_task_repository.dart';
 import 'package:multi_stopwatch/core/storage/task_repository.dart';
 import 'package:multi_stopwatch/core/ticker/tick_source.dart';
 
+import 'package:multi_stopwatch/core/storage/retrying_task_repository.dart';
+
 import '../support/fake_time_sources.dart';
-import '../support/flaky_task_repository.dart';
 
 const _blue = 0xFF2196F3;
 const _tick = TickSource.defaultInterval;
@@ -608,25 +609,27 @@ void main() {
         'bị tắt, đồng hồ pause giữ nguyên', () {
       fakeAsync((async) {
         final now = FakeAsyncTimeSource(async).now();
-        final repository = InMemoryTaskRepository([
-          StopwatchTask(
-            id: 'run',
-            name: 'Đang chạy',
-            colorValue: _blue,
-            createdAt: now.subtract(const Duration(hours: 1)),
-            status: TaskStatus.running,
-            accumulated: const Duration(seconds: 5),
-            runningSince: now.subtract(const Duration(minutes: 10)),
-          ),
-          StopwatchTask(
-            id: 'paused',
-            name: 'Tạm dừng',
-            colorValue: _blue,
-            createdAt: now.subtract(const Duration(hours: 1)),
-            status: TaskStatus.paused,
-            accumulated: const Duration(seconds: 42),
-          ),
-        ]);
+        final repository = InMemoryTaskRepository(
+          initial: [
+            StopwatchTask(
+              id: 'run',
+              name: 'Đang chạy',
+              colorValue: _blue,
+              createdAt: now.subtract(const Duration(hours: 1)),
+              status: TaskStatus.running,
+              accumulated: const Duration(seconds: 5),
+              runningSince: now.subtract(const Duration(minutes: 10)),
+            ),
+            StopwatchTask(
+              id: 'paused',
+              name: 'Tạm dừng',
+              colorValue: _blue,
+              createdAt: now.subtract(const Duration(hours: 1)),
+              status: TaskStatus.paused,
+              accumulated: const Duration(seconds: 42),
+            ),
+          ],
+        );
         final manager = _open(async, repository: repository);
 
         expect(manager.currentTasks.map((t) => t.id), ['run', 'paused']);
@@ -649,14 +652,14 @@ void main() {
     test('lưu thất bại: Future lỗi StorageException và trạng thái quay về '
         'như trước', () {
       fakeAsync((async) {
-        final repository = FlakyTaskRepository();
+        final repository = InMemoryTaskRepository();
         final manager = _open(async, repository: repository);
         final id = _create(async, manager);
         _settle(async, manager.start(id));
         async.elapse(const Duration(seconds: 1));
         final tasks = _Recorder(manager.tasksStream);
         async.flushMicrotasks();
-        repository.failWrites = true;
+        repository.failureRate = 1;
 
         expect(_errorOf(async, manager.pause(id)), isA<StorageException>());
         expect(tasks.values.map((list) => list.single.status), [
@@ -685,7 +688,7 @@ void main() {
         );
         expect(manager.currentTasks, hasLength(1));
 
-        repository.failWrites = false;
+        repository.failureRate = 0;
         _settle(async, manager.pause(id));
         expect(_snapshot(manager, id).elapsed, const Duration(seconds: 2));
         final saved = _settle(async, repository.loadAll()).single;
@@ -697,10 +700,10 @@ void main() {
 
     test('lệnh gọi liên tiếp không chờ nhau vẫn chạy tuần tự đúng thứ tự', () {
       fakeAsync((async) {
-        final repository = FlakyTaskRepository();
+        final repository = InMemoryTaskRepository();
         final manager = _open(async, repository: repository);
         final id = _create(async, manager);
-        repository.writeDelay = const Duration(milliseconds: 100);
+        repository.latency = const Duration(milliseconds: 100);
 
         final started = manager.start(id);
         final lapped = manager.lap(id);
@@ -721,10 +724,10 @@ void main() {
 
     test('lệnh gọi sau deleteTask đang chờ lưu thấy đồng hồ đã bị xóa', () {
       fakeAsync((async) {
-        final repository = FlakyTaskRepository();
+        final repository = InMemoryTaskRepository();
         final manager = _open(async, repository: repository);
         final id = _create(async, manager);
-        repository.writeDelay = const Duration(milliseconds: 100);
+        repository.latency = const Duration(milliseconds: 100);
 
         final deleted = manager.deleteTask(id);
         final renamed = manager.renameTask(id, 'Muộn');
@@ -735,6 +738,226 @@ void main() {
         _settle(async, manager.dispose());
       });
     });
+
+    test('repository có retry: lỗi tạm thời được thử lại, UI không thấy hoàn '
+        'tác', () {
+      fakeAsync((async) {
+        final api = InMemoryTaskRepository();
+        final manager = _open(
+          async,
+          repository: RetryingTaskRepository(
+            api,
+            initialDelay: const Duration(milliseconds: 100),
+          ),
+        );
+        final id = _create(async, manager);
+        final tasks = _Recorder(manager.tasksStream);
+        async.flushMicrotasks();
+        api.failNext(2);
+
+        var started = false;
+        manager.start(id).then((_) => started = true);
+        async.elapse(const Duration(milliseconds: 299));
+        expect(started, isFalse);
+        expect(_snapshot(manager, id).status, TaskStatus.running);
+        async.elapse(const Duration(milliseconds: 1));
+
+        expect(started, isTrue);
+        expect(tasks.values.map((list) => list.single.status), [
+          TaskStatus.idle,
+          TaskStatus.running,
+        ]);
+        expect(_settle(async, api.loadAll()).single.status, TaskStatus.running);
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('repository có retry: lỗi kéo dài thì hết lượt thử mới hoàn tác', () {
+      fakeAsync((async) {
+        final api = InMemoryTaskRepository();
+        final manager = _open(
+          async,
+          repository: RetryingTaskRepository(
+            api,
+            initialDelay: const Duration(milliseconds: 100),
+          ),
+        );
+        final id = _create(async, manager);
+        api.failNext(3);
+
+        Object? error;
+        manager.start(id).catchError((Object e) => error = e);
+        async.elapse(const Duration(milliseconds: 299));
+        expect(error, isNull);
+        async.elapse(const Duration(milliseconds: 1));
+
+        expect(error, isA<StorageException>());
+        expect(_snapshot(manager, id).status, TaskStatus.idle);
+        _settle(async, manager.dispose());
+      });
+    });
+  });
+
+  group('khởi động lại (tạo manager mới trên cùng repository)', () {
+    test('danh sách, tên, màu, thứ tự, lap và trạng thái được khôi phục; '
+        'đồng hồ đang chạy được cộng cả thời gian app bị tắt', () {
+      fakeAsync((async) {
+        final repository = InMemoryTaskRepository();
+        final first = _open(async, repository: repository);
+        final run = _create(async, first, 'Chạy bộ');
+        final paused = _create(async, first, 'Đọc sách');
+        final idle = _create(async, first, 'Nấu ăn');
+        _settle(async, first.changeTaskColor(idle, 0xFFFF9800));
+        _settle(async, first.start(run));
+        async.elapse(const Duration(seconds: 1));
+        _settle(async, first.lap(run));
+        _settle(async, first.start(paused));
+        async.elapse(const Duration(milliseconds: 1500));
+        _settle(async, first.lap(run));
+        _settle(async, first.pause(paused));
+        async.elapse(const Duration(milliseconds: 500));
+        final before = first.currentTasks;
+        _settle(async, first.dispose());
+
+        async.elapse(const Duration(minutes: 10));
+        final second = _open(async, repository: repository);
+        final after = second.currentTasks;
+
+        expect(after.map((t) => t.id), [run, paused, idle]);
+        expect(after.map((t) => t.name), ['Chạy bộ', 'Đọc sách', 'Nấu ăn']);
+        expect(after.map((t) => t.colorValue), [_blue, _blue, 0xFFFF9800]);
+        expect(after.map((t) => t.status), [
+          TaskStatus.running,
+          TaskStatus.paused,
+          TaskStatus.idle,
+        ]);
+        expect(after[0].laps, before[0].laps);
+        expect(after[0].laps, hasLength(2));
+        expect(
+          after[0].elapsed,
+          before[0].elapsed + const Duration(minutes: 10),
+        );
+        expect(after[1].elapsed, const Duration(milliseconds: 1500));
+        expect(after[2].elapsed, Duration.zero);
+
+        async.elapse(const Duration(seconds: 2));
+        expect(
+          _snapshot(second, run).elapsed,
+          const Duration(minutes: 10, seconds: 5),
+        );
+        expect(
+          _snapshot(second, paused).elapsed,
+          const Duration(milliseconds: 1500),
+        );
+        _settle(async, second.dispose());
+      });
+    });
+
+    test('sau khi mở lại, lap tiếp tục đánh số và tính split/delta nối tiếp '
+        'lap cũ', () {
+      fakeAsync((async) {
+        final repository = InMemoryTaskRepository();
+        final first = _open(async, repository: repository);
+        final id = _create(async, first);
+        _settle(async, first.start(id));
+        async.elapse(const Duration(seconds: 1));
+        _settle(async, first.lap(id));
+        async.elapse(const Duration(seconds: 2));
+        _settle(async, first.lap(id));
+        _settle(async, first.dispose());
+
+        async.elapse(const Duration(seconds: 30));
+        final second = _open(async, repository: repository);
+        async.elapse(const Duration(seconds: 1));
+        final lap = _settle(async, second.lap(id));
+
+        expect(lap.number, 3);
+        expect(lap.total, const Duration(seconds: 34));
+        expect(lap.split, const Duration(seconds: 31));
+        expect(lap.delta, const Duration(seconds: 29));
+        expect(_snapshot(second, id).laps.map((l) => l.number), [1, 2, 3]);
+        _settle(async, second.dispose());
+      });
+    });
+
+    test('mở lại nhiều lần liên tiếp vẫn khớp thời gian thật, không trôi', () {
+      fakeAsync((async) {
+        final repository = InMemoryTaskRepository();
+        var manager = _open(async, repository: repository);
+        final id = _create(async, manager);
+        _settle(async, manager.start(id));
+
+        for (var i = 0; i < 5; i++) {
+          async.elapse(Duration(seconds: 7 + i, milliseconds: 123));
+          _settle(async, manager.dispose());
+          async.elapse(Duration(minutes: i + 1));
+          manager = _open(async, repository: repository);
+        }
+
+        expect(_snapshot(manager, id).elapsed, async.elapsed);
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('repository có độ trễ: open chờ nạp xong mới trả về manager', () {
+      fakeAsync((async) {
+        final repository = InMemoryTaskRepository(
+          initial: [
+            StopwatchTask(
+              id: 'saved',
+              name: 'Đã lưu',
+              colorValue: _blue,
+              createdAt: FakeAsyncTimeSource(async).now(),
+            ),
+          ],
+          latency: const Duration(milliseconds: 300),
+        );
+        StopwatchManager? manager;
+        StopwatchManager.open(
+          repository: repository,
+          timeSource: FakeAsyncTimeSource(async),
+        ).then((opened) => manager = opened);
+
+        async.elapse(const Duration(milliseconds: 299));
+        expect(manager, isNull);
+        async.elapse(const Duration(milliseconds: 1));
+        expect(manager!.currentTasks.single.id, 'saved');
+        _settle(async, manager!.dispose());
+      });
+    });
+
+    test(
+      'constructor nhận repository và dữ liệu đã nạp (DI), dùng được ngay',
+      () {
+        fakeAsync((async) {
+          final repository = InMemoryTaskRepository();
+          final manager = StopwatchManager(
+            repository: repository,
+            initialTasks: [
+              StopwatchTask(
+                id: 'paused',
+                name: 'Tạm dừng',
+                colorValue: _blue,
+                createdAt: FakeAsyncTimeSource(async).now(),
+                status: TaskStatus.paused,
+                accumulated: const Duration(seconds: 42),
+              ),
+            ],
+            timeSource: FakeAsyncTimeSource(async),
+          );
+
+          expect(manager.currentTasks.single.elapsed, Duration(seconds: 42));
+          _settle(async, manager.resume('paused'));
+          async.elapse(const Duration(seconds: 1));
+          expect(manager.currentTasks.single.elapsed, Duration(seconds: 43));
+          expect(
+            _settle(async, repository.loadAll()).single.status,
+            TaskStatus.running,
+          );
+          _settle(async, manager.dispose());
+        });
+      },
+    );
   });
 
   group('dispose', () {
@@ -790,10 +1013,10 @@ void main() {
 
     test('chờ lệnh đang dở lưu xong rồi mới hoàn thành', () {
       fakeAsync((async) {
-        final repository = FlakyTaskRepository();
+        final repository = InMemoryTaskRepository();
         final manager = _open(async, repository: repository);
         final id = _create(async, manager);
-        repository.writeDelay = const Duration(milliseconds: 500);
+        repository.latency = const Duration(milliseconds: 500);
 
         final started = manager.start(id);
         var disposed = false;
@@ -804,6 +1027,7 @@ void main() {
         expect(disposed, isTrue);
 
         _settle(async, started);
+        repository.latency = Duration.zero;
         final saved = _settle(async, repository.loadAll()).single;
         expect(saved.status, TaskStatus.running);
       });
