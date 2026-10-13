@@ -20,12 +20,58 @@ Future<LocalTaskRepository> _repositoryAfterRestart() async {
   return _repository();
 }
 
+/// [SharedPreferences] giả có lệnh ghi thất bại theo [write], để thử các nhánh
+/// lỗi mà bản giả của package không tạo ra được.
+class _FailingPreferences implements SharedPreferences {
+  _FailingPreferences(this.write);
+
+  final Future<bool> Function() write;
+
+  @override
+  String? getString(String key) => null;
+
+  @override
+  Future<bool> setString(String key, String value) => write();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   runTaskRepositoryContract(_repository);
 
   group('LocalTaskRepository', () {
+    test(
+      'ghi thất bại (setString trả false hoặc ném lỗi) báo StorageException',
+      () async {
+        final rejected = LocalTaskRepository(
+          _FailingPreferences(() async => false),
+        );
+        final crashed = LocalTaskRepository(
+          _FailingPreferences(() async => throw Exception('đĩa đầy')),
+        );
+
+        await expectLater(
+          rejected.upsert(contractTask('a')),
+          throwsA(
+            isA<StorageException>().having((e) => e.cause, 'cause', isNull),
+          ),
+        );
+        await expectLater(
+          crashed.upsert(contractTask('a')),
+          throwsA(
+            isA<StorageException>().having(
+              (e) => e.cause,
+              'cause',
+              isA<Exception>(),
+            ),
+          ),
+        );
+      },
+    );
+
     test('lưu thành JSON có version dưới một key duy nhất', () async {
       final repository = await _repository();
       await repository.upsert(contractTask('a'));

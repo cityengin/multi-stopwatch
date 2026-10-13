@@ -1056,6 +1056,63 @@ void main() {
     });
   });
 
+  group('không trôi khi chạy lâu', () {
+    test('qua elapsedStream (thứ UI nhận): chạy 1 giờ có giật, mọi giá trị '
+        'khớp thời gian thật; cộng dồn tick thì lệch hơn 5 phút', () {
+      fakeAsync((async) {
+        final manager = _open(async);
+        final id = _create(async, manager);
+        _settle(async, manager.start(id));
+        var received = 0;
+        var mismatches = 0;
+        var naive = Duration.zero;
+        final subscription = manager.elapsedStream(id).listen((elapsed) {
+          received++;
+          if (elapsed != async.elapsed) mismatches++;
+          if (received == 1) return;
+          naive += TickSource.defaultInterval;
+          if (received % 90 == 0) {
+            async.elapseBlocking(const Duration(milliseconds: 400));
+          }
+        });
+        async.elapse(const Duration(hours: 1));
+
+        expect(received, greaterThan(1000));
+        expect(mismatches, 0);
+        expect(_snapshot(manager, id).elapsed, async.elapsed);
+        expect(async.elapsed - naive, greaterThan(const Duration(minutes: 5)));
+        subscription.cancel();
+        _settle(async, manager.dispose());
+      });
+    });
+  });
+
+  group('đồng hồ thật (không dùng fake_async)', () {
+    test('SystemTimeSource và Timer thật: elapsedStream tăng dần theo thời '
+        'gian thật', () async {
+      final manager = await StopwatchManager.open(
+        repository: InMemoryTaskRepository(),
+      );
+      final id = (await manager.createTask(name: 'Thật', colorValue: _blue)).id;
+      await manager.start(id);
+      final values = <Duration>[];
+      final subscription = manager.elapsedStream(id).listen(values.add);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await subscription.cancel();
+      await manager.pause(id);
+
+      expect(values.length, greaterThan(1));
+      for (var i = 1; i < values.length; i++) {
+        expect(values[i] > values[i - 1], isTrue);
+      }
+      expect(
+        _snapshot(manager, id).elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 100)),
+      );
+      await manager.dispose();
+    });
+  });
+
   group('hủy luồng an toàn (StreamTracker)', () {
     test('sau dispose: hasListener == false, không còn Timer, số subscription '
         'active về 0, không phát sự kiện nào sau khi đóng', () {

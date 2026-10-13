@@ -166,6 +166,47 @@ void main() {
       });
     });
 
+    test(
+      'không inject TimeSource thì ghi thời điểm theo giờ hệ thống (UTC)',
+      () {
+        final tracker = StreamTracker()..recordDispose('x');
+
+        expect(tracker.history.single.at.isUtc, isTrue);
+        tracker.dispose();
+      },
+    );
+
+    test('StreamLogEvent so sánh theo giá trị và có toString dễ đọc', () {
+      final at = DateTime.utc(2026);
+      final event = StreamLogEvent(
+        kind: StreamLogKind.cancel,
+        source: 'tick',
+        activeCount: 0,
+        at: at,
+      );
+      final same = StreamLogEvent(
+        kind: StreamLogKind.cancel,
+        source: 'tick',
+        activeCount: 0,
+        at: at,
+      );
+
+      expect(event, same);
+      expect(event.hashCode, same.hashCode);
+      expect(
+        event,
+        isNot(
+          StreamLogEvent(
+            kind: StreamLogKind.listen,
+            source: 'tick',
+            activeCount: 0,
+            at: at,
+          ),
+        ),
+      );
+      expect(event.toString(), 'cancel tick (active: 0)');
+    });
+
     test('recordDispose ghi sự kiện dispose của một thành phần', () {
       fakeAsync((async) {
         final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
