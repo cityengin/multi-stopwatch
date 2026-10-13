@@ -24,37 +24,47 @@ import 'stopwatch_service.dart';
 ///   trạng thái trước đó vì không có lệnh nào xen giữa.
 /// - Tạo/xóa thì chờ lưu xong mới phát, để UI không thấy đồng hồ "hiện ra rồi
 ///   biến mất" khi lưu lỗi.
+/// - Khôi phục sau khi khởi động lại dựa trên timestamp: đồng hồ đang chạy được
+///   dựng lại từ `accumulated` và `runningSince` đã lưu, nên thời gian app bị
+///   tắt cũng được tính.
 class StopwatchManager implements StopwatchService {
-  StopwatchManager._(
-    this._repository,
-    this._tickSource,
-    this._ownsTickSource,
-    this._time,
-  );
-
-  /// Nạp dữ liệu từ [repository] rồi trả về manager đã sẵn sàng.
+  /// Nhận mọi dependency từ bên ngoài (dependency injection): nơi lưu
+  /// [repository], nguồn nhịp [tickSource], nguồn thời gian [timeSource]; nhờ
+  /// vậy test thay được bằng bản giả, app chọn được lưu trên máy hay API.
+  ///
+  /// [initialTasks] là dữ liệu đã nạp từ [repository]. Vì sao không tự nạp
+  /// trong constructor: constructor Dart không thể `await`. Việc đọc bất đồng
+  /// bộ nằm ở [open], còn constructor chạy đồng bộ, nên không bao giờ có trạng
+  /// thái "đã tạo nhưng chưa nạp xong".
   ///
   /// [tickSource] được truyền vào thì manager không dispose nó (nơi tạo tự
-  /// quản lý); bỏ trống thì manager tự tạo và tự dispose. [timeSource] để
-  /// inject đồng hồ giả khi test. Lỗi đọc dữ liệu: Future lỗi với
-  /// [StorageException].
+  /// quản lý); bỏ trống thì manager tự tạo và tự dispose.
+  StopwatchManager({
+    required this._repository,
+    List<StopwatchTask> initialTasks = const [],
+    TickSource? tickSource,
+    TimeSource? timeSource,
+  }) : _tickSource = tickSource ?? TickSource(),
+       _ownsTickSource = tickSource == null,
+       _time = timeSource ?? SystemTimeSource() {
+    for (final task in initialTasks) {
+      _entries[task.id] = _newEntry(task);
+    }
+  }
+
+  /// Cách tạo thường dùng: nạp dữ liệu từ [repository] rồi gọi constructor.
+  ///
+  /// Lỗi đọc dữ liệu: Future lỗi với [StorageException].
   static Future<StopwatchManager> open({
     required TaskRepository repository,
     TickSource? tickSource,
     TimeSource? timeSource,
-  }) async {
-    final tasks = await repository.loadAll();
-    final manager = StopwatchManager._(
-      repository,
-      tickSource ?? TickSource(),
-      tickSource == null,
-      timeSource ?? SystemTimeSource(),
-    );
-    for (final task in tasks) {
-      manager._entries[task.id] = manager._newEntry(task);
-    }
-    return manager;
-  }
+  }) async => StopwatchManager(
+    repository: repository,
+    initialTasks: await repository.loadAll(),
+    tickSource: tickSource,
+    timeSource: timeSource,
+  );
 
   final TaskRepository _repository;
   final TickSource _tickSource;
