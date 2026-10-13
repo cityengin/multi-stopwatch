@@ -28,8 +28,9 @@ export 'stopwatch_exceptions.dart';
 ///   - `TaskNotFoundException`: không có đồng hồ mang `taskId`.
 ///   - `InvalidTransitionException`: trạng thái hiện tại không cho phép thao
 ///     tác (xem bảng bên dưới).
-///   - `StorageException`: lưu thất bại; trạng thái giữ nguyên như trước khi
-///     gọi.
+///   - `StorageException`: lưu thất bại; trạng thái được đưa về như trước khi
+///     gọi. Stream có thể đã phát trạng thái mới, khi đó sẽ phát lại trạng
+///     thái cũ.
 ///   - `ArgumentError`: tham số không hợp lệ (tên rỗng, màu ngoài ARGB 32-bit).
 ///   - `StateError`: gọi sau khi đã [dispose].
 ///
