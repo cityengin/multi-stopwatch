@@ -35,23 +35,38 @@ class LocalTaskRepository implements TaskRepository {
   Future<List<StopwatchTask>> loadAll() async => _read();
 
   @override
-  Future<void> upsert(StopwatchTask task) async {
-    final tasks = _read();
-    final index = tasks.indexWhere((existing) => existing.id == task.id);
-    if (index >= 0) {
-      tasks[index] = task;
-    } else {
-      tasks.add(task);
-    }
-    await _write(tasks);
-  }
+  Future<void> upsert(StopwatchTask task) => upsertAll([task]);
 
   @override
-  Future<void> delete(String taskId) async {
-    final tasks = _read();
-    final before = tasks.length;
-    tasks.removeWhere((task) => task.id == taskId);
-    if (tasks.length != before) await _write(tasks);
+  Future<void> delete(String taskId) => deleteAll([taskId]);
+
+  /// Đọc, sửa cả lô trong bộ nhớ rồi ghi MỘT lần `setString`, nên cả lô cùng
+  /// được lưu hoặc cùng không.
+  @override
+  Future<void> upsertAll(Iterable<StopwatchTask> tasks) async {
+    final batch = tasks.toList();
+    if (batch.isEmpty) return;
+    final stored = _read();
+    for (final task in batch) {
+      final index = stored.indexWhere((existing) => existing.id == task.id);
+      if (index >= 0) {
+        stored[index] = task;
+      } else {
+        stored.add(task);
+      }
+    }
+    await _write(stored);
+  }
+
+  /// Ghi MỘT lần như [upsertAll]; không id nào tồn tại thì không ghi gì.
+  @override
+  Future<void> deleteAll(Iterable<String> taskIds) async {
+    final ids = taskIds.toSet();
+    if (ids.isEmpty) return;
+    final stored = _read();
+    final before = stored.length;
+    stored.removeWhere((task) => ids.contains(task.id));
+    if (stored.length != before) await _write(stored);
   }
 
   List<StopwatchTask> _read() {

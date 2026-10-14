@@ -79,6 +79,27 @@ class InMemoryTaskRepository implements TaskRepository {
     _rows.remove(taskId);
   }
 
+  /// Cả lô là MỘT request: chờ [latency] một lần và thành công/lỗi một lần.
+  /// Mọi JSON được tạo xong trước khi ghi, nên lô luôn được ghi trọn vẹn.
+  @override
+  Future<void> upsertAll(Iterable<StopwatchTask> tasks) async {
+    final batch = tasks.toList();
+    if (batch.isEmpty) return;
+    await _simulateRequest('lưu ${batch.length} đồng hồ');
+    _rows.addAll({
+      for (final task in batch) task.id: jsonEncode(task.toJson()),
+    });
+  }
+
+  /// Cả lô là MỘT request, như [upsertAll].
+  @override
+  Future<void> deleteAll(Iterable<String> taskIds) async {
+    final batch = taskIds.toList();
+    if (batch.isEmpty) return;
+    await _simulateRequest('xóa ${batch.length} đồng hồ');
+    batch.forEach(_rows.remove);
+  }
+
   /// Chờ như một request mạng rồi quyết định thành công hay lỗi. Lỗi xảy ra
   /// sau độ trễ, như request bị timeout, và không làm thay đổi dữ liệu.
   Future<void> _simulateRequest(String operation) async {

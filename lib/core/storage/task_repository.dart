@@ -26,6 +26,18 @@ abstract interface class TaskRepository {
   ///
   /// Vì sao idempotent: thử lại (retry) sau lỗi mạng/IO luôn an toàn.
   Future<void> delete(String taskId);
+
+  /// Ghi nhiều đồng hồ trong MỘT lần ghi; kết quả như gọi [upsert] lần lượt
+  /// theo thứ tự của [tasks]. [tasks] rỗng thì không làm gì.
+  ///
+  /// Vì sao cần: thao tác hàng loạt chỉ tốn một lần I/O, và cả lô cùng thành
+  /// công hoặc cùng thất bại (lỗi thì không đồng hồ nào bị ghi).
+  Future<void> upsertAll(Iterable<StopwatchTask> tasks);
+
+  /// Xóa các id trong [taskIds] trong MỘT lần ghi; id không tồn tại được bỏ
+  /// qua. Cùng thành công hoặc cùng thất bại như [upsertAll]; [taskIds] rỗng
+  /// thì không làm gì.
+  Future<void> deleteAll(Iterable<String> taskIds);
 }
 
 /// Lỗi đọc/ghi dữ liệu.

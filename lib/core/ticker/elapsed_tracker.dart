@@ -88,17 +88,24 @@ class ElapsedTracker {
   }
 
   /// Bắt đầu một đoạn chạy mới; ném [StateError] nếu đang chạy.
-  void start() {
+  ///
+  /// [at] là mốc đã đọc sẵn từ cùng [TimeSource] của tracker; bỏ trống thì đọc
+  /// thời gian hiện tại. Vì sao cho truyền mốc: thao tác hàng loạt cần mọi
+  /// đồng hồ trong lô bắt đầu ở đúng một thời điểm.
+  void start([TimeReading? at]) {
     if (isRunning) throw StateError('ElapsedTracker đang chạy.');
-    _runningSince = _time.now();
-    _monotonicAnchor = _time.monotonicNow();
+    final reading = at ?? _time.read();
+    _runningSince = reading.wall;
+    _monotonicAnchor = reading.monotonic;
   }
 
-  /// Kết thúc đoạn đang chạy, gộp vào [accumulated] và trả về elapsed; ném
-  /// [StateError] nếu không chạy.
-  Duration stop() {
+  /// Kết thúc đoạn đang chạy tại [at] (bỏ trống thì tại lúc gọi), gộp vào
+  /// [accumulated] và trả về elapsed; ném [StateError] nếu không chạy.
+  ///
+  /// [at] có cùng lý do như ở [start]: cả lô dừng ở đúng một thời điểm.
+  Duration stop([TimeReading? at]) {
     if (!isRunning) throw StateError('ElapsedTracker không chạy.');
-    _accumulated = elapsed;
+    _accumulated += _syncSegment(at)!;
     _runningSince = null;
     _monotonicAnchor = null;
     return _accumulated;
@@ -111,14 +118,15 @@ class ElapsedTracker {
     _monotonicAnchor = null;
   }
 
-  /// Đối chiếu hai nguồn thời gian và trả về độ dài đoạn đang chạy; null khi
-  /// không chạy.
-  Duration? _syncSegment() {
+  /// Đối chiếu hai nguồn thời gian tại [at] (bỏ trống thì đọc thời gian hiện
+  /// tại) và trả về độ dài đoạn đang chạy; null khi không chạy.
+  Duration? _syncSegment([TimeReading? at]) {
     final anchor = _monotonicAnchor;
     final since = _runningSince;
     if (anchor == null || since == null) return null;
-    final wallNow = _time.now();
-    final monotonicSegment = _time.monotonicNow() - anchor;
+    final reading = at ?? _time.read();
+    final wallNow = reading.wall;
+    final monotonicSegment = reading.monotonic - anchor;
     final drift = wallNow.difference(since) - monotonicSegment;
     if (drift > syncThreshold) {
       _monotonicAnchor = anchor - drift;
