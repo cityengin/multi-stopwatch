@@ -1,14 +1,18 @@
 import 'dart:async';
 
+import 'package:multi_stopwatch/core/debug/stream_tracker.dart';
 import 'package:multi_stopwatch/core/services/stopwatch_service.dart';
 
 /// Fake implementation của [StopwatchService] phục vụ kiểm thử UI mà không cần
 /// dùng package mock ngoài (tuân thủ quy tắc 5).
 class FakeStopwatchService implements StopwatchService {
-  FakeStopwatchService({List<TaskSnapshot> initialTasks = const []})
-    : _tasks = List.of(initialTasks);
+  FakeStopwatchService({
+    List<TaskSnapshot> initialTasks = const [],
+    this.tracker,
+  }) : _tasks = List.of(initialTasks);
 
   final List<TaskSnapshot> _tasks;
+  final StreamTracker? tracker;
   final StreamController<List<TaskSnapshot>> _tasksController =
       StreamController<List<TaskSnapshot>>.broadcast(sync: true);
 
@@ -20,7 +24,10 @@ class FakeStopwatchService implements StopwatchService {
   List<TaskSnapshot> get currentTasks => List.unmodifiable(_tasks);
 
   @override
-  Stream<List<TaskSnapshot>> get tasksStream => _tasksController.stream;
+  Stream<List<TaskSnapshot>> get tasksStream {
+    final stream = _tasksController.stream;
+    return tracker != null ? tracker!.track('tasksStream', stream) : stream;
+  }
 
   @override
   Stream<Duration> elapsedStream(String taskId) {
@@ -32,7 +39,10 @@ class FakeStopwatchService implements StopwatchService {
       taskId,
       () => StreamController<Duration>.broadcast(sync: true),
     );
-    return controller.stream;
+    final stream = controller.stream;
+    return tracker != null
+        ? tracker!.track('elapsedStream:$taskId', stream)
+        : stream;
   }
 
   void _notifyTasks() {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/stopwatch_service.dart';
 import '../scope/stopwatch_scope.dart';
 import '../widgets/task_card.dart';
+import 'debug_screen.dart';
 import 'task_detail_screen.dart';
 
 /// Màn hình danh sách các đồng hồ bấm giờ song song.
@@ -380,10 +381,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _navigateToDebug() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const DebugScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Multi-Stopwatch'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Multi-Stopwatch'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            key: const Key('home_debug_btn'),
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: 'Bộ theo dõi luồng (Debug)',
+            onPressed: _navigateToDebug,
+          ),
+        ],
+      ),
       body: StreamBuilder<List<TaskSnapshot>>(
         stream: _tasksStream,
         initialData: _service.currentTasks,

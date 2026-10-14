@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/debug/stream_tracker.dart';
 import 'core/services/stopwatch_manager.dart';
 import 'core/storage/local_task_repository.dart';
 import 'core/storage/task_repository.dart';
@@ -13,13 +14,20 @@ void main() {
 
 /// Widget gốc của ứng dụng Multi-Stopwatch.
 ///
-/// Quản lý vòng đời của [StopwatchManager] duy nhất trong toàn bộ ứng dụng:
+/// Quản lý vòng đời của [StopwatchManager] và [StreamTracker] duy nhất:
 /// khởi tạo trong [State.initState] và giải phóng trong [State.dispose].
 class MultiStopwatchApp extends StatefulWidget {
-  const MultiStopwatchApp({super.key, this.repository});
+  const MultiStopwatchApp({
+    super.key,
+    this.repository,
+    this.tracker,
+  });
 
   /// [TaskRepository] truyền vào để phục vụ kiểm thử hoặc ghi đè nơi lưu trữ.
   final TaskRepository? repository;
+
+  /// [StreamTracker] truyền vào để phục vụ kiểm thử hoặc ghi đè bộ theo dõi stream.
+  final StreamTracker? tracker;
 
   @override
   State<MultiStopwatchApp> createState() => _MultiStopwatchAppState();
@@ -27,12 +35,14 @@ class MultiStopwatchApp extends StatefulWidget {
 
 class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
   late final Future<StopwatchManager> _managerFuture;
+  late final StreamTracker _tracker;
   StopwatchManager? _manager;
 
   @override
   void initState() {
     super.initState();
-    // Tạo duy nhất một StopwatchManager trong initState theo đúng quy ước kiến trúc.
+    // Tạo tracker và duy nhất một StopwatchManager trong initState theo đúng quy ước kiến trúc.
+    _tracker = widget.tracker ?? StreamTracker(historyLimit: 200);
     _managerFuture = _initManager();
   }
 
@@ -45,15 +55,21 @@ class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
       final preferences = await SharedPreferences.getInstance();
       repo = LocalTaskRepository(preferences);
     }
-    final manager = await StopwatchManager.open(repository: repo);
+    final manager = await StopwatchManager.open(
+      repository: repo,
+      tracker: _tracker,
+    );
     _manager = manager;
     return manager;
   }
 
   @override
   void dispose() {
-    // Bắt buộc giải phóng StopwatchManager duy nhất khi widget gốc unmount.
+    // Bắt buộc giải phóng StopwatchManager và StreamTracker khi widget gốc unmount.
     _manager?.dispose();
+    if (widget.tracker == null) {
+      _tracker.dispose();
+    }
     super.dispose();
   }
 
@@ -83,9 +99,10 @@ class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
               ),
             );
           }
-          // Cung cấp StopwatchManager xuống toàn bộ widget tree qua StopwatchScope
+          // Cung cấp StopwatchManager và StreamTracker xuống toàn bộ widget tree qua StopwatchScope
           return StopwatchScope(
             service: snapshot.requireData,
+            tracker: _tracker,
             child: const HomeScreen(),
           );
         },
