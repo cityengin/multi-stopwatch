@@ -199,30 +199,70 @@ class FakeStopwatchService implements StopwatchService {
     return newLap;
   }
 
-  @override
-  Future<void> runAll() => _updateAll(
-    (task) => task.status != TaskStatus.running,
-    (task) => task.copyWith(status: TaskStatus.running),
-  );
+  int runAllCalls = 0;
+  int pauseAllCalls = 0;
+  int resetAllCalls = 0;
+  int deleteAllCalls = 0;
+
+  Object? nextRunAllError;
+  Object? nextPauseAllError;
+  Object? nextResetAllError;
+  Object? nextDeleteAllError;
 
   @override
-  Future<void> pauseAll() => _updateAll(
-    (task) => task.status == TaskStatus.running,
-    (task) => task.copyWith(status: TaskStatus.paused),
-  );
+  Future<void> runAll() async {
+    runAllCalls++;
+    if (nextRunAllError != null) {
+      final err = nextRunAllError!;
+      nextRunAllError = null;
+      throw err;
+    }
+    return _updateAll(
+      (task) => task.status != TaskStatus.running,
+      (task) => task.copyWith(status: TaskStatus.running),
+    );
+  }
 
   @override
-  Future<void> resetAll() => _updateAll(
-    (task) => task.status != TaskStatus.idle,
-    (task) => task.copyWith(
-      status: TaskStatus.idle,
-      elapsed: Duration.zero,
-      laps: const [],
-    ),
-  );
+  Future<void> pauseAll() async {
+    pauseAllCalls++;
+    if (nextPauseAllError != null) {
+      final err = nextPauseAllError!;
+      nextPauseAllError = null;
+      throw err;
+    }
+    return _updateAll(
+      (task) => task.status == TaskStatus.running,
+      (task) => task.copyWith(status: TaskStatus.paused),
+    );
+  }
+
+  @override
+  Future<void> resetAll() async {
+    resetAllCalls++;
+    if (nextResetAllError != null) {
+      final err = nextResetAllError!;
+      nextResetAllError = null;
+      throw err;
+    }
+    return _updateAll(
+      (task) => task.status != TaskStatus.idle,
+      (task) => task.copyWith(
+        status: TaskStatus.idle,
+        elapsed: Duration.zero,
+        laps: const [],
+      ),
+    );
+  }
 
   @override
   Future<void> deleteAll() async {
+    deleteAllCalls++;
+    if (nextDeleteAllError != null) {
+      final err = nextDeleteAllError!;
+      nextDeleteAllError = null;
+      throw err;
+    }
     if (_tasks.isEmpty) return;
     _tasks.clear();
     for (final controller in _elapsedControllers.values) {
