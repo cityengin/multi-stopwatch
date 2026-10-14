@@ -28,8 +28,8 @@ class StopwatchScope extends InheritedWidget {
     final scope = context.dependOnInheritedWidgetOfExactType<StopwatchScope>();
     if (scope == null) {
       throw StateError(
-        'Không tìm thấy StopwatchScope trong widget tree. '
-        'Hãy đảm bảo widget được bọc trong StopwatchScope.',
+        'StopwatchScope not found in widget tree. '
+        'Ensure widget is wrapped in StopwatchScope.',
       );
     }
     return scope.service;

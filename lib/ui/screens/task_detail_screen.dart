@@ -75,7 +75,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } on StopwatchException catch (e) {
       _showErrorSnackBar(e.message);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -85,7 +85,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } on StopwatchException catch (e) {
       _showErrorSnackBar(e.message);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -95,7 +95,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } on StopwatchException catch (e) {
       _showErrorSnackBar(e.message);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -105,7 +105,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } on StopwatchException catch (e) {
       _showErrorSnackBar(e.message);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -115,7 +115,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } on StopwatchException catch (e) {
       _showErrorSnackBar(e.message);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -135,10 +135,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Chi tiết đồng hồ')),
+            appBar: AppBar(title: const Text('Stopwatch Details')),
             body: Center(
               child: Text(
-                'Lỗi nạp đồng hồ: ${snapshot.error}',
+                'Error loading stopwatch: ${snapshot.error}',
                 style: const TextStyle(color: Colors.red),
               ),
             ),
@@ -148,18 +148,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         final task = snapshot.data;
         if (task == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Chi tiết đồng hồ')),
+            appBar: AppBar(title: const Text('Stopwatch Details')),
             body: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.info_outline, size: 48, color: Colors.grey),
                   const SizedBox(height: 12),
-                  const Text('Đồng hồ này không còn tồn tại hoặc đã bị xóa.'),
+                  const Text('This stopwatch no longer exists or has been deleted.'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Quay lại'),
+                    child: const Text('Go Back'),
                   ),
                 ],
               ),
@@ -171,9 +171,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         final theme = Theme.of(context);
 
         final (statusLabel, statusColor) = switch (task.status) {
-          TaskStatus.idle => ('Sẵn sàng', Colors.grey),
-          TaskStatus.running => ('Đang chạy', Colors.green),
-          TaskStatus.paused => ('Tạm dừng', Colors.orange),
+          TaskStatus.idle => ('Ready', Colors.grey),
+          TaskStatus.running => ('Running', Colors.green),
+          TaskStatus.paused => ('Paused', Colors.orange),
         };
 
         // Xác định best lap và worst lap nếu có từ 2 lap trở lên
@@ -254,9 +254,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ? _handleReset
                           : null,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Đặt lại'),
+                      label: const Text('Reset'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red.shade700,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     // Nút Start / Pause / Resume
@@ -265,12 +269,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         key: const Key('detail_start_btn'),
                         onPressed: _handleStart,
                         icon: const Icon(Icons.play_arrow),
-                        label: const Text('Bắt đầu'),
+                        label: const Text('Start'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.green.shade700,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
+                            horizontal: 18,
                             vertical: 12,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -279,12 +287,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         key: const Key('detail_pause_btn'),
                         onPressed: _handlePause,
                         icon: const Icon(Icons.pause),
-                        label: const Text('Tạm dừng'),
+                        label: const Text('Pause'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.orange.shade800,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
+                            horizontal: 18,
                             vertical: 12,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -293,12 +305,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         key: const Key('detail_resume_btn'),
                         onPressed: _handleResume,
                         icon: const Icon(Icons.play_arrow),
-                        label: const Text('Tiếp tục'),
+                        label: const Text('Resume'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.blue.shade700,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
+                            horizontal: 18,
                             vertical: 12,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -309,7 +325,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ? _handleLap
                           : null,
                       icon: const Icon(Icons.flag_outlined),
-                      label: const Text('Vòng'),
+                      label: const Text('Lap'),
+                      style: FilledButton.styleFrom(
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -326,14 +348,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Danh sách vòng (${task.laps.length})',
+                      'Laps (${task.laps.length})',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     if (task.laps.isNotEmpty)
                       Text(
-                        'Lap gần nhất ở đầu',
+                        'Latest lap on top',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -347,7 +369,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 child: task.laps.isEmpty
                     ? Center(
                         child: Text(
-                          'Chưa ghi nhận vòng nào.\nBấm "Vòng" khi đang chạy để ghi lại thời gian chặng.',
+                          'No laps recorded yet.\nTap "Lap" while running to record lap split times.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
@@ -419,7 +441,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      'Nhanh nhất',
+                                      'Fastest',
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.green.shade800,
@@ -442,7 +464,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      'Chậm nhất',
+                                      'Slowest',
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.red.shade800,
@@ -454,7 +476,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ],
                             ),
                             subtitle: Text(
-                              'Tổng: ${formatElapsed(lap.total)}',
+                              'Total: ${formatElapsed(lap.total)}',
                               style: const TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 13,

@@ -101,13 +101,13 @@ class _HomeScreenState extends State<HomeScreen> {
       await _service.start(taskId);
     } on StopwatchException catch (error) {
       final msg = switch (error) {
-        TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
+        TaskNotFoundException() => 'Stopwatch no longer exists',
         InvalidTransitionException(:final action) =>
-          'Không thể $action lúc này',
+          'Cannot $action right now',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -116,13 +116,13 @@ class _HomeScreenState extends State<HomeScreen> {
       await _service.pause(taskId);
     } on StopwatchException catch (error) {
       final msg = switch (error) {
-        TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
+        TaskNotFoundException() => 'Stopwatch no longer exists',
         InvalidTransitionException(:final action) =>
-          'Không thể $action lúc này',
+          'Cannot $action right now',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -131,13 +131,13 @@ class _HomeScreenState extends State<HomeScreen> {
       await _service.resume(taskId);
     } on StopwatchException catch (error) {
       final msg = switch (error) {
-        TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
+        TaskNotFoundException() => 'Stopwatch no longer exists',
         InvalidTransitionException(:final action) =>
-          'Không thể $action lúc này',
+          'Cannot $action right now',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+      _showErrorSnackBar('Storage error, reverted');
     }
   }
 
@@ -145,9 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _service.runAll();
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ khi chạy tất cả');
+      _showErrorSnackBar('Storage error while running all');
     } catch (e) {
-      _showErrorSnackBar('Không thể chạy tất cả: $e');
+      _showErrorSnackBar('Cannot run all: $e');
     }
   }
 
@@ -155,9 +155,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _service.pauseAll();
     } on StorageException {
-      _showErrorSnackBar('Lỗi lưu trữ khi tạm dừng tất cả');
+      _showErrorSnackBar('Storage error while pausing all');
     } catch (e) {
-      _showErrorSnackBar('Không thể tạm dừng tất cả: $e');
+      _showErrorSnackBar('Cannot pause all: $e');
     }
   }
 
@@ -165,12 +165,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xác nhận reset tất cả'),
-        content: Text('Reset toàn bộ $count đồng hồ về 00:00 và xóa hết lap?'),
+        title: const Text('Confirm Reset All'),
+        content: Text('Reset all $count stopwatches to 00:00 and clear all laps?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -184,9 +184,9 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await _service.resetAll();
       } on StorageException {
-        _showErrorSnackBar('Lỗi lưu trữ khi reset tất cả');
+        _showErrorSnackBar('Storage error while resetting all');
       } catch (e) {
-        _showErrorSnackBar('Không thể reset tất cả: $e');
+        _showErrorSnackBar('Cannot reset all: $e');
       }
     }
   }
@@ -195,19 +195,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xác nhận xóa tất cả'),
+        title: const Text('Confirm Delete All'),
         content: Text(
-          'Xóa toàn bộ $count đồng hồ? Hành động này không thể hoàn tác.',
+          'Delete all $count stopwatches? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xóa'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -217,9 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await _service.deleteAll();
       } on StorageException {
-        _showErrorSnackBar('Lỗi lưu trữ khi xóa tất cả');
+        _showErrorSnackBar('Storage error while deleting all');
       } catch (e) {
-        _showErrorSnackBar('Không thể xóa tất cả: $e');
+        _showErrorSnackBar('Cannot delete all: $e');
       }
     }
   }
@@ -234,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Thêm đồng hồ mới'),
+              title: const Text('Add New Stopwatch'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -244,14 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: nameController,
                       autofocus: true,
                       decoration: const InputDecoration(
-                        labelText: 'Tên đồng hồ',
-                        hintText: 'Ví dụ: Nấu ăn, Chạy bộ...',
+                        labelText: 'Stopwatch Name',
+                        hintText: 'e.g., Cooking, Workout...',
                         border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Chọn màu đại diện:',
+                      'Select color:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
@@ -301,14 +301,14 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Hủy'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () {
                     if (nameController.text.trim().isEmpty) return;
                     Navigator.of(dialogContext).pop(true);
                   },
-                  child: const Text('Tạo'),
+                  child: const Text('Create'),
                 ),
               ],
             );
@@ -327,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } on ArgumentError catch (e) {
         _showErrorSnackBar(e.message.toString());
       } on StorageException {
-        _showErrorSnackBar('Lỗi khi lưu đồng hồ');
+        _showErrorSnackBar('Error saving stopwatch');
       }
     }
   }
@@ -337,26 +337,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Đổi tên đồng hồ'),
+        title: const Text('Rename Stopwatch'),
         content: TextField(
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Tên mới',
+            labelText: 'New Name',
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
               if (controller.text.trim().isEmpty) return;
               Navigator.of(dialogContext).pop(true);
             },
-            child: const Text('Lưu'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -369,9 +369,9 @@ class _HomeScreenState extends State<HomeScreen> {
       } on ArgumentError catch (e) {
         _showErrorSnackBar(e.message.toString());
       } on StopwatchException {
-        _showErrorSnackBar('Đồng hồ không còn tồn tại');
+        _showErrorSnackBar('Stopwatch no longer exists');
       } on StorageException {
-        _showErrorSnackBar('Lỗi khi lưu tên mới');
+        _showErrorSnackBar('Error saving new name');
       }
     }
   }
@@ -385,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Đổi màu đồng hồ'),
+              title: const Text('Change Stopwatch Color'),
               content: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -429,11 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Hủy'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Lưu'),
+                  child: const Text('Save'),
                 ),
               ],
             );
@@ -446,9 +446,9 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await _service.changeTaskColor(task.id, selectedColor.toARGB32());
       } on StopwatchException {
-        _showErrorSnackBar('Đồng hồ không còn tồn tại');
+        _showErrorSnackBar('Stopwatch no longer exists');
       } on StorageException {
-        _showErrorSnackBar('Lỗi khi lưu màu mới');
+        _showErrorSnackBar('Error saving new color');
       }
     }
   }
@@ -457,17 +457,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc chắn muốn xóa đồng hồ "${task.name}"?'),
+        title: const Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete "${task.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xóa'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -477,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await _service.deleteTask(task.id);
       } on StorageException {
-        _showErrorSnackBar('Lỗi khi xóa đồng hồ');
+        _showErrorSnackBar('Error deleting stopwatch');
       }
     }
   }
@@ -503,13 +503,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Multi-Stopwatch'),
+        title: const Text('Multi Stopwatch'),
         centerTitle: true,
         actions: [
           IconButton(
             key: const Key('home_debug_btn'),
             icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'Bộ theo dõi luồng (Debug)',
+            tooltip: 'Stream Tracker (Debug)',
             onPressed: _navigateToDebug,
           ),
         ],
@@ -524,13 +524,13 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: _searchFieldController,
               onChanged: (text) => _searchController.add(text),
               decoration: InputDecoration(
-                hintText: 'Tìm kiếm đồng hồ theo tên...',
+                hintText: 'Search stopwatches by name...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchFieldController.text.isNotEmpty
                     ? IconButton(
                         key: const Key('home_search_clear_btn'),
                         icon: const Icon(Icons.clear),
-                        tooltip: 'Xóa tìm kiếm',
+                        tooltip: 'Clear search',
                         onPressed: () {
                           _searchFieldController.clear();
                           _searchController.add('');
@@ -569,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           size: 48,
                         ),
                         const SizedBox(height: 12),
-                        Text('Đã xảy ra lỗi: ${snapshot.error}'),
+                        Text('An error occurred: ${snapshot.error}'),
                       ],
                     ),
                   );
@@ -608,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         key: const Key('add_task_fab'),
         onPressed: _showCreateTaskDialog,
-        tooltip: 'Thêm đồng hồ',
+        tooltip: 'Add Stopwatch',
         child: const Icon(Icons.add),
       ),
     );
@@ -622,83 +622,75 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool canResetAll,
     required bool canDeleteAll,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 600;
+    final buttonStyle = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    );
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                Tooltip(
-                  message: 'Thêm đồng hồ',
-                  child: FilledButton.icon(
-                    key: const Key('batch_add_btn'),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: isCompact
-                        ? const Text('Thêm')
-                        : const Text('Thêm đồng hồ'),
-                    onPressed: _showCreateTaskDialog,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Chạy tất cả',
-                  child: OutlinedButton.icon(
-                    key: const Key('batch_run_all_btn'),
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('Chạy tất cả'),
-                    onPressed: canRunAll ? _handleRunAll : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Pause tất cả',
-                  child: OutlinedButton.icon(
-                    key: const Key('batch_pause_all_btn'),
-                    icon: const Icon(Icons.pause, size: 18),
-                    label: const Text('Pause tất cả'),
-                    onPressed: canPauseAll ? _handlePauseAll : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Reset tất cả',
-                  child: OutlinedButton.icon(
-                    key: const Key('batch_reset_all_btn'),
-                    icon: const Icon(Icons.restart_alt, size: 18),
-                    label: const Text('Reset tất cả'),
-                    onPressed: canResetAll
-                        ? () => _confirmResetAll(tasks.length)
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Xóa tất cả',
-                  child: OutlinedButton.icon(
-                    key: const Key('batch_delete_all_btn'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      iconColor: Colors.red,
-                      side: canDeleteAll
-                          ? BorderSide(color: Colors.red.shade300)
-                          : null,
-                    ),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Xóa tất cả'),
-                    onPressed: canDeleteAll
-                        ? () => _confirmDeleteAll(tasks.length)
-                        : null,
-                  ),
-                ),
-              ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Tooltip(
+              message: 'Run All',
+              child: OutlinedButton.icon(
+                key: const Key('batch_run_all_btn'),
+                style: buttonStyle,
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('Run All'),
+                onPressed: canRunAll ? _handleRunAll : null,
+              ),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Pause All',
+              child: OutlinedButton.icon(
+                key: const Key('batch_pause_all_btn'),
+                style: buttonStyle,
+                icon: const Icon(Icons.pause, size: 18),
+                label: const Text('Pause All'),
+                onPressed: canPauseAll ? _handlePauseAll : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Reset All',
+              child: OutlinedButton.icon(
+                key: const Key('batch_reset_all_btn'),
+                style: buttonStyle,
+                icon: const Icon(Icons.restart_alt, size: 18),
+                label: const Text('Reset All'),
+                onPressed: canResetAll
+                    ? () => _confirmResetAll(tasks.length)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Delete All',
+              child: OutlinedButton.icon(
+                key: const Key('batch_delete_all_btn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  iconColor: Colors.red,
+                  side: canDeleteAll
+                      ? BorderSide(color: Colors.red.shade300)
+                      : null,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete All'),
+                onPressed: canDeleteAll
+                    ? () => _confirmDeleteAll(tasks.length)
+                    : null,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -711,13 +703,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.timer_outlined, size: 72, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'Chưa có đồng hồ nào',
+              'No stopwatches yet',
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
-              'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
+              'Tap the + button below to create your first stopwatch',
               style: Theme.of(context).textTheme.bodyMedium
                   ?.copyWith(color: Colors.grey.shade500),
             ),
@@ -739,13 +731,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'Không tìm thấy đồng hồ nào',
+              'No stopwatches found',
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
-              'Không có kết quả khớp với "$_searchQuery"',
+              'No results matching "$_searchQuery"',
               style: Theme.of(context).textTheme.bodyMedium
                   ?.copyWith(color: Colors.grey.shade500),
             ),

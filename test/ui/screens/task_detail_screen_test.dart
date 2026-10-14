@@ -33,7 +33,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Chạy việt dã'), findsOneWidget);
-        expect(find.text('Sẵn sàng'), findsOneWidget);
+        expect(find.text('Ready'), findsOneWidget);
         expect(find.text('00:00.00'), findsOneWidget);
 
         // Nút Bắt đầu bật
@@ -75,7 +75,7 @@ void main() {
         await tester.tap(find.byKey(const Key('detail_start_btn')));
         await tester.pump();
 
-        expect(find.text('Đang chạy'), findsOneWidget);
+        expect(find.text('Running'), findsOneWidget);
         expect(find.byKey(const Key('detail_pause_btn')), findsOneWidget);
 
         // 2. Cập nhật thời gian chặng 1: 30s
@@ -100,24 +100,24 @@ void main() {
 
         expect(find.text('#2'), findsOneWidget);
         expect(find.text('-00:05.00'), findsOneWidget); // Nhanh hơn 5 giây
-        expect(find.text('Nhanh nhất'), findsOneWidget);
+        expect(find.text('Fastest'), findsOneWidget);
 
         // 4. Bấm Tạm dừng
         await tester.tap(find.byKey(const Key('detail_pause_btn')));
         await tester.pump();
 
-        expect(find.text('Tạm dừng'), findsOneWidget);
+        expect(find.text('Paused'), findsOneWidget);
         expect(find.byKey(const Key('detail_resume_btn')), findsOneWidget);
 
         // 5. Bấm Đặt lại (Reset)
         await tester.tap(find.byKey(const Key('detail_reset_btn')));
         await tester.pump();
 
-        expect(find.text('Sẵn sàng'), findsOneWidget);
+        expect(find.text('Ready'), findsOneWidget);
         expect(fakeService.currentTasks.first.status, TaskStatus.idle);
         expect(
           find.text(
-            'Chưa ghi nhận vòng nào.\nBấm "Vòng" khi đang chạy để ghi lại thời gian chặng.',
+            'No laps recorded yet.\nTap "Lap" while running to record lap split times.',
           ),
           findsOneWidget,
         );

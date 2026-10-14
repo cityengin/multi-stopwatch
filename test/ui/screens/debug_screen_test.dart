@@ -28,8 +28,8 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: DebugScreen(tracker: tracker)));
       await tester.pump();
 
-      expect(find.text('Bộ theo dõi luồng (Debug)'), findsOneWidget);
-      expect(find.text('Subscription đang hoạt động'), findsOneWidget);
+      expect(find.text('Stream Tracker (Debug)'), findsOneWidget);
+      expect(find.text('Active Subscriptions'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('active_subscriptions_badge')),
@@ -37,7 +37,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Chưa có sự kiện nào trong log.'), findsOneWidget);
+      expect(find.text('No events recorded in log yet.'), findsOneWidget);
     });
 
     testWidgets(
@@ -132,7 +132,7 @@ void main() {
       expect(find.text('CANCEL'), findsWidgets);
 
       // Bấm Tất cả để hiển thị lại đủ
-      await tester.tap(find.widgetWithText(FilterChip, 'Tất cả'));
+      await tester.tap(find.widgetWithText(FilterChip, 'All'));
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(ListTile), findsNWidgets(2));
@@ -156,8 +156,8 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Bộ theo dõi luồng (Debug)'), findsOneWidget);
-        expect(find.text('Subscription đang hoạt động'), findsOneWidget);
+        expect(find.text('Stream Tracker (Debug)'), findsOneWidget);
+        expect(find.text('Active Subscriptions'), findsOneWidget);
       },
     );
 

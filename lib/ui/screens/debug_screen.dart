@@ -97,8 +97,7 @@ class _DebugScreenState extends State<DebugScreen> {
         appBar: AppBar(title: const Text('Stream Debugger')),
         body: const Center(
           child: Text(
-            'Không tìm thấy StreamTracker.\n'
-            'Hãy đảm bảo StopwatchScope đã được cung cấp tracker.',
+            'StreamTracker not found.\nPlease make sure StopwatchScope was provided with a tracker.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -107,10 +106,10 @@ class _DebugScreenState extends State<DebugScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bộ theo dõi luồng (Debug)'),
+        title: const Text('Stream Tracker (Debug)'),
         actions: [
           IconButton(
-            tooltip: 'Làm mới',
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: () => setState(() {}),
           ),
@@ -161,14 +160,14 @@ class _DebugScreenState extends State<DebugScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Subscription đang hoạt động',
+                                  'Active Subscriptions',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Theo dõi qua StreamTracker',
+                                  'Tracked via StreamTracker',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: Colors.grey.shade600,
                                   ),
@@ -205,7 +204,7 @@ class _DebugScreenState extends State<DebugScreen> {
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Chi tiết các luồng đang lắng nghe:',
+                              'Active streams breakdown:',
                               style: theme.textTheme.labelMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -267,8 +266,8 @@ class _DebugScreenState extends State<DebugScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Demo: Khi mở màn chi tiết, subscription tăng. Khi thoát màn chi tiết, '
-                        'sự kiện CANCEL được ghi nhận và subscription giảm.',
+                        'Demo: Opening detail increases subscriptions. Leaving detail logs '
+                        'CANCEL event and decreases subscriptions.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.amber.shade900,
@@ -287,7 +286,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 child: Row(
                   children: [
                     FilterChip(
-                      label: const Text('Tất cả'),
+                      label: const Text('All'),
                       selected: _selectedFilter == null,
                       onSelected: (_) => setState(() => _selectedFilter = null),
                     ),
@@ -317,7 +316,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 child: displayLogs.isEmpty
                     ? Center(
                         child: Text(
-                          'Chưa có sự kiện nào trong log.',
+                          'No events recorded in log yet.',
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
                       )
@@ -375,7 +374,7 @@ class _DebugScreenState extends State<DebugScreen> {
                               ],
                             ),
                             subtitle: Text(
-                              'Thời gian: ${_formatTimestamp(event.at)}',
+                              'Time: ${_formatTimestamp(event.at)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -391,7 +390,7 @@ class _DebugScreenState extends State<DebugScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                'Còn: ${event.activeCount}',
+                                'Active: ${event.activeCount}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,

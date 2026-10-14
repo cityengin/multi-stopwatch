@@ -39,9 +39,9 @@ class TaskCard extends StatelessWidget {
     final taskColor = Color(task.colorValue);
 
     final (statusLabel, statusColor) = switch (task.status) {
-      TaskStatus.idle => ('Sẵn sàng', Colors.grey),
-      TaskStatus.running => ('Đang chạy', Colors.green),
-      TaskStatus.paused => ('Tạm dừng', Colors.orange),
+      TaskStatus.idle => ('Ready', Colors.grey),
+      TaskStatus.running => ('Running', Colors.green),
+      TaskStatus.paused => ('Paused', Colors.orange),
     };
 
     return Card(
@@ -102,7 +102,7 @@ class TaskCard extends StatelessWidget {
                   // Menu các thao tác thêm
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
-                    tooltip: 'Tùy chọn',
+                    tooltip: 'Options',
                     onSelected: (value) {
                       switch (value) {
                         case 'rename':
@@ -120,7 +120,7 @@ class TaskCard extends StatelessWidget {
                           children: [
                             Icon(Icons.edit, size: 20),
                             SizedBox(width: 8),
-                            Text('Đổi tên'),
+                            Text('Rename'),
                           ],
                         ),
                       ),
@@ -130,7 +130,7 @@ class TaskCard extends StatelessWidget {
                           children: [
                             Icon(Icons.palette, size: 20),
                             SizedBox(width: 8),
-                            Text('Đổi màu'),
+                            Text('Change Color'),
                           ],
                         ),
                       ),
@@ -141,7 +141,7 @@ class TaskCard extends StatelessWidget {
                           children: [
                             Icon(Icons.delete, color: Colors.red, size: 20),
                             SizedBox(width: 8),
-                            Text('Xóa', style: TextStyle(color: Colors.red)),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
                           ],
                         ),
                       ),
@@ -186,9 +186,13 @@ class TaskCard extends StatelessWidget {
                       key: Key('start_btn_${task.id}'),
                       onPressed: onStart,
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Bắt đầu'),
+                      label: const Text('Start'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.green.shade700,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   if (task.status == TaskStatus.running)
@@ -196,9 +200,13 @@ class TaskCard extends StatelessWidget {
                       key: Key('pause_btn_${task.id}'),
                       onPressed: onPause,
                       icon: const Icon(Icons.pause),
-                      label: const Text('Tạm dừng'),
+                      label: const Text('Pause'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.orange.shade800,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   if (task.status == TaskStatus.paused)
@@ -206,9 +214,13 @@ class TaskCard extends StatelessWidget {
                       key: Key('resume_btn_${task.id}'),
                       onPressed: onResume,
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Tiếp tục'),
+                      label: const Text('Resume'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.blue.shade700,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                 ],
