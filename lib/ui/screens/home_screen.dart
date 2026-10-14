@@ -90,9 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      );
   }
 
   Future<void> _handleStart(String taskId) async {
@@ -137,6 +139,89 @@ class _HomeScreenState extends State<HomeScreen> {
       _showErrorSnackBar(msg);
     } on StorageException {
       _showErrorSnackBar('Lỗi lưu trữ, đã hoàn tác');
+    }
+  }
+
+  Future<void> _handleRunAll() async {
+    try {
+      await _service.runAll();
+    } on StorageException {
+      _showErrorSnackBar('Lỗi lưu trữ khi chạy tất cả');
+    } catch (e) {
+      _showErrorSnackBar('Không thể chạy tất cả: $e');
+    }
+  }
+
+  Future<void> _handlePauseAll() async {
+    try {
+      await _service.pauseAll();
+    } on StorageException {
+      _showErrorSnackBar('Lỗi lưu trữ khi tạm dừng tất cả');
+    } catch (e) {
+      _showErrorSnackBar('Không thể tạm dừng tất cả: $e');
+    }
+  }
+
+  Future<void> _confirmResetAll(int count) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xác nhận reset tất cả'),
+        content: Text('Reset toàn bộ $count đồng hồ về 00:00 và xóa hết lap?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await _service.resetAll();
+      } on StorageException {
+        _showErrorSnackBar('Lỗi lưu trữ khi reset tất cả');
+      } catch (e) {
+        _showErrorSnackBar('Không thể reset tất cả: $e');
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteAll(int count) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xác nhận xóa tất cả'),
+        content: Text(
+          'Xóa toàn bộ $count đồng hồ? Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await _service.deleteAll();
+      } on StorageException {
+        _showErrorSnackBar('Lỗi lưu trữ khi xóa tất cả');
+      } catch (e) {
+        _showErrorSnackBar('Không thể xóa tất cả: $e');
+      }
     }
   }
 
@@ -503,128 +588,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 final tasks = snapshot.data ?? const <TaskSnapshot>[];
+                final canRunAll = tasks.any(
+                  (t) =>
+                      t.status == TaskStatus.idle ||
+                      t.status == TaskStatus.paused,
+                );
+                final canPauseAll = tasks.any(
+                  (t) => t.status == TaskStatus.running,
+                );
+                final canResetAll = tasks.isNotEmpty;
+                final canDeleteAll = tasks.isNotEmpty;
 
-                if (tasks.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.timer_outlined,
-                          size: 72,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Chưa có đồng hồ nào',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey.shade500),
-                        ),
-                      ],
+                return Column(
+                  children: [
+                    _buildBatchActionBar(
+                      context,
+                      tasks: tasks,
+                      canRunAll: canRunAll,
+                      canPauseAll: canPauseAll,
+                      canResetAll: canResetAll,
+                      canDeleteAll: canDeleteAll,
                     ),
-                  );
-                }
-
-                final query = _searchQuery.trim().toLowerCase();
-                final filteredTasks = query.isEmpty
-                    ? tasks
-                    : tasks
-                          .where((t) => t.name.toLowerCase().contains(query))
-                          .toList();
-
-                if (filteredTasks.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Không tìm thấy đồng hồ nào',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Không có kết quả khớp với "$_searchQuery"',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey.shade500),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 600;
-
-                    if (isWide) {
-                      // Màn rộng: Hiển thị dạng lưới (GridView)
-                      final crossAxisCount = constraints.maxWidth >= 960
-                          ? 3
-                          : 2;
-                      return GridView.builder(
-                        key: const Key('tasks_grid_view'),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          mainAxisExtent: 210,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final task = filteredTasks[index];
-                          return TaskCard(
-                            key: ValueKey(task.id),
-                            task: task,
-                            service: _service,
-                            margin: EdgeInsets.zero,
-                            onTap: () => _navigateToDetail(task),
-                            onStart: () => _handleStart(task.id),
-                            onPause: () => _handlePause(task.id),
-                            onResume: () => _handleResume(task.id),
-                            onRename: () => _showRenameDialog(task),
-                            onChangeColor: () => _showChangeColorDialog(task),
-                            onDelete: () => _confirmDelete(task),
-                          );
-                        },
-                      );
-                    } else {
-                      // Màn hẹp: Hiển thị danh sách dọc (ListView)
-                      return ListView.builder(
-                        key: const Key('tasks_list_view'),
-                        padding: const EdgeInsets.only(top: 4, bottom: 80),
-                        itemCount: filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final task = filteredTasks[index];
-                          return TaskCard(
-                            key: ValueKey(task.id),
-                            task: task,
-                            service: _service,
-                            onTap: () => _navigateToDetail(task),
-                            onStart: () => _handleStart(task.id),
-                            onPause: () => _handlePause(task.id),
-                            onResume: () => _handleResume(task.id),
-                            onRename: () => _showRenameDialog(task),
-                            onChangeColor: () => _showChangeColorDialog(task),
-                            onDelete: () => _confirmDelete(task),
-                          );
-                        },
-                      );
-                    }
-                  },
+                    Expanded(child: _buildTasksList(context, tasks)),
+                  ],
                 );
               },
             ),
@@ -637,6 +623,207 @@ class _HomeScreenState extends State<HomeScreen> {
         tooltip: 'Thêm đồng hồ',
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildBatchActionBar(
+    BuildContext context, {
+    required List<TaskSnapshot> tasks,
+    required bool canRunAll,
+    required bool canPauseAll,
+    required bool canResetAll,
+    required bool canDeleteAll,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Tooltip(
+                  message: 'Thêm đồng hồ',
+                  child: FilledButton.icon(
+                    key: const Key('batch_add_btn'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: isCompact
+                        ? const Text('Thêm')
+                        : const Text('Thêm đồng hồ'),
+                    onPressed: _showCreateTaskDialog,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Chạy tất cả',
+                  child: OutlinedButton.icon(
+                    key: const Key('batch_run_all_btn'),
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: const Text('Chạy tất cả'),
+                    onPressed: canRunAll ? _handleRunAll : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Pause tất cả',
+                  child: OutlinedButton.icon(
+                    key: const Key('batch_pause_all_btn'),
+                    icon: const Icon(Icons.pause, size: 18),
+                    label: const Text('Pause tất cả'),
+                    onPressed: canPauseAll ? _handlePauseAll : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Reset tất cả',
+                  child: OutlinedButton.icon(
+                    key: const Key('batch_reset_all_btn'),
+                    icon: const Icon(Icons.restart_alt, size: 18),
+                    label: const Text('Reset tất cả'),
+                    onPressed: canResetAll
+                        ? () => _confirmResetAll(tasks.length)
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Xóa tất cả',
+                  child: OutlinedButton.icon(
+                    key: const Key('batch_delete_all_btn'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      iconColor: Colors.red,
+                      side: canDeleteAll
+                          ? BorderSide(color: Colors.red.shade300)
+                          : null,
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Xóa tất cả'),
+                    onPressed: canDeleteAll
+                        ? () => _confirmDeleteAll(tasks.length)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTasksList(BuildContext context, List<TaskSnapshot> tasks) {
+    if (tasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.timer_outlined, size: 72, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Chưa có đồng hồ nào',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredTasks = query.isEmpty
+        ? tasks
+        : tasks.where((t) => t.name.toLowerCase().contains(query)).toList();
+
+    if (filteredTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Không tìm thấy đồng hồ nào',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Không có kết quả khớp với "$_searchQuery"',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+
+        if (isWide) {
+          // Màn rộng: Hiển thị dạng lưới (GridView)
+          final crossAxisCount = constraints.maxWidth >= 960 ? 3 : 2;
+          return GridView.builder(
+            key: const Key('tasks_grid_view'),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisExtent: 210,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: filteredTasks.length,
+            itemBuilder: (context, index) {
+              final task = filteredTasks[index];
+              return TaskCard(
+                key: ValueKey(task.id),
+                task: task,
+                service: _service,
+                margin: EdgeInsets.zero,
+                onTap: () => _navigateToDetail(task),
+                onStart: () => _handleStart(task.id),
+                onPause: () => _handlePause(task.id),
+                onResume: () => _handleResume(task.id),
+                onRename: () => _showRenameDialog(task),
+                onChangeColor: () => _showChangeColorDialog(task),
+                onDelete: () => _confirmDelete(task),
+              );
+            },
+          );
+        } else {
+          // Màn hẹp: Hiển thị danh sách dọc (ListView)
+          return ListView.builder(
+            key: const Key('tasks_list_view'),
+            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            itemCount: filteredTasks.length,
+            itemBuilder: (context, index) {
+              final task = filteredTasks[index];
+              return TaskCard(
+                key: ValueKey(task.id),
+                task: task,
+                service: _service,
+                onTap: () => _navigateToDetail(task),
+                onStart: () => _handleStart(task.id),
+                onPause: () => _handlePause(task.id),
+                onResume: () => _handleResume(task.id),
+                onRename: () => _showRenameDialog(task),
+                onChangeColor: () => _showChangeColorDialog(task),
+                onDelete: () => _confirmDelete(task),
+              );
+            },
+          );
+        }
+      },
     );
   }
 }

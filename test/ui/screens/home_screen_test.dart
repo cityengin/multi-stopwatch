@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:multi_stopwatch/core/services/stopwatch_service.dart';
 import 'package:multi_stopwatch/ui/scope/stopwatch_scope.dart';
 import 'package:multi_stopwatch/ui/screens/home_screen.dart';
 import 'package:multi_stopwatch/ui/screens/task_detail_screen.dart';
@@ -328,5 +329,418 @@ void main() {
         expect(find.byKey(const Key('tasks_list_view')), findsNothing);
       },
     );
+
+    group('Batch Operations Toolbar Tests', () {
+      testWidgets(
+        'Kiểm tra trạng thái enable/disable của 4 nút thao tác hàng loạt theo dữ liệu',
+        (WidgetTester tester) async {
+          // 1. Khi danh sách rỗng: tất cả nút batch đều disabled, nút Thêm enabled
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          final addBtn = tester.widget<FilledButton>(
+            find.byKey(const Key('batch_add_btn')),
+          );
+          final runAllBtn = tester.widget<OutlinedButton>(
+            find.byKey(const Key('batch_run_all_btn')),
+          );
+          final pauseAllBtn = tester.widget<OutlinedButton>(
+            find.byKey(const Key('batch_pause_all_btn')),
+          );
+          final resetAllBtn = tester.widget<OutlinedButton>(
+            find.byKey(const Key('batch_reset_all_btn')),
+          );
+          final deleteAllBtn = tester.widget<OutlinedButton>(
+            find.byKey(const Key('batch_delete_all_btn')),
+          );
+
+          expect(addBtn.enabled, isTrue);
+          expect(runAllBtn.enabled, isFalse);
+          expect(pauseAllBtn.enabled, isFalse);
+          expect(resetAllBtn.enabled, isFalse);
+          expect(deleteAllBtn.enabled, isFalse);
+
+          // 2. Thêm 1 đồng hồ ở trạng thái idle:
+          // Chạy tất cả: bật; Pause tất cả: tắt; Reset/Xóa tất cả: bật
+          await fakeService.createTask(
+            name: 'Đồng hồ 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+          await tester.pump();
+
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_run_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_pause_all_btn')),
+                )
+                .enabled,
+            isFalse,
+          );
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_reset_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_delete_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+
+          // 3. Chạy đồng hồ 1 (status: running):
+          // Chạy tất cả: tắt (không còn idle/paused); Pause tất cả: bật
+          await fakeService.start('task_1');
+          await tester.pump();
+
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_run_all_btn')),
+                )
+                .enabled,
+            isFalse,
+          );
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_pause_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+
+          // 4. Thêm đồng hồ 2 (idle):
+          // Lúc này có cả running (đồng hồ 1) và idle (đồng hồ 2)
+          // -> Cả Chạy tất cả và Pause tất cả đều bật
+          await fakeService.createTask(
+            name: 'Đồng hồ 2',
+            colorValue: Colors.orange.toARGB32(),
+          );
+          await tester.pump();
+
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_run_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+          expect(
+            tester
+                .widget<OutlinedButton>(
+                  find.byKey(const Key('batch_pause_all_btn')),
+                )
+                .enabled,
+            isTrue,
+          );
+        },
+      );
+
+      testWidgets(
+        'Bấm "Chạy tất cả" và "Pause tất cả" gọi đúng hàm trên service',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task A',
+            colorValue: Colors.blue.toARGB32(),
+          );
+          await fakeService.createTask(
+            name: 'Task B',
+            colorValue: Colors.red.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          expect(fakeService.runAllCalls, 0);
+          expect(fakeService.pauseAllCalls, 0);
+
+          // Bấm "Chạy tất cả"
+          final runBtn = find.byKey(const Key('batch_run_all_btn'));
+          await tester.ensureVisible(runBtn);
+          await tester.tap(runBtn);
+          await tester.pump();
+
+          expect(fakeService.runAllCalls, 1);
+          expect(
+            fakeService.currentTasks.every(
+              (t) => t.status == TaskStatus.running,
+            ),
+            isTrue,
+          );
+
+          // Bấm "Pause tất cả"
+          final pauseBtn = find.byKey(const Key('batch_pause_all_btn'));
+          await tester.ensureVisible(pauseBtn);
+          await tester.tap(pauseBtn);
+          await tester.pump();
+
+          expect(fakeService.pauseAllCalls, 1);
+          expect(
+            fakeService.currentTasks.every(
+              (t) => t.status == TaskStatus.paused,
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      testWidgets(
+        'Bấm "Reset tất cả" hiện dialog nêu số lượng: Hủy không gọi, xác nhận gọi đúng 1 lần',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+          await fakeService.createTask(
+            name: 'Task 2',
+            colorValue: Colors.green.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          final resetBtn = find.byKey(const Key('batch_reset_all_btn'));
+
+          // 1. Bấm Reset tất cả
+          await tester.ensureVisible(resetBtn);
+          await tester.tap(resetBtn);
+          await tester.pumpAndSettle();
+
+          // Kiểm tra dialog
+          expect(find.text('Xác nhận reset tất cả'), findsOneWidget);
+          expect(
+            find.text('Reset toàn bộ 2 đồng hồ về 00:00 và xóa hết lap?'),
+            findsOneWidget,
+          );
+
+          // Bấm Hủy -> không gọi API
+          await tester.tap(find.text('Hủy'));
+          await tester.pumpAndSettle();
+
+          expect(fakeService.resetAllCalls, 0);
+          expect(find.text('Xác nhận reset tất cả'), findsNothing);
+
+          // 2. Mở lại dialog và bấm xác nhận Reset
+          await tester.ensureVisible(resetBtn);
+          await tester.tap(resetBtn);
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Reset'));
+          await tester.pumpAndSettle();
+
+          expect(fakeService.resetAllCalls, 1);
+        },
+      );
+
+      testWidgets(
+        'Bấm "Xóa tất cả" hiện dialog nêu số lượng: Hủy không gọi, xác nhận gọi đúng 1 lần',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+          await fakeService.createTask(
+            name: 'Task 2',
+            colorValue: Colors.green.toARGB32(),
+          );
+          await fakeService.createTask(
+            name: 'Task 3',
+            colorValue: Colors.purple.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          final deleteBtn = find.byKey(const Key('batch_delete_all_btn'));
+
+          // 1. Bấm Xóa tất cả
+          await tester.ensureVisible(deleteBtn);
+          await tester.tap(deleteBtn);
+          await tester.pumpAndSettle();
+
+          // Kiểm tra dialog nêu rõ số lượng đồng hồ
+          expect(find.text('Xác nhận xóa tất cả'), findsOneWidget);
+          expect(
+            find.text(
+              'Xóa toàn bộ 3 đồng hồ? Hành động này không thể hoàn tác.',
+            ),
+            findsOneWidget,
+          );
+
+          // Bấm Hủy -> không gọi API
+          await tester.tap(find.text('Hủy'));
+          await tester.pumpAndSettle();
+
+          expect(fakeService.deleteAllCalls, 0);
+          expect(fakeService.currentTasks.length, 3);
+          expect(find.text('Xác nhận xóa tất cả'), findsNothing);
+
+          // 2. Mở lại dialog và xác nhận Xóa
+          await tester.ensureVisible(deleteBtn);
+          await tester.tap(deleteBtn);
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Xóa'));
+          await tester.pumpAndSettle();
+
+          expect(fakeService.deleteAllCalls, 1);
+          expect(fakeService.currentTasks.isEmpty, isTrue);
+          expect(find.text('Chưa có đồng hồ nào'), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'Màn hình hẹp (320px width) cho phép cuộn ngang thanh công cụ, không bị RenderFlex overflow',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = const Size(320, 600);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+
+          await fakeService.createTask(
+            name: 'Task Mini',
+            colorValue: Colors.blue.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          // Xác nhận cuộn ngang hoạt động và không có lỗi overflow
+          expect(tester.takeException(), isNull);
+          expect(find.byKey(const Key('batch_add_btn')), findsOneWidget);
+          expect(find.byKey(const Key('batch_run_all_btn')), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'Xử lý lỗi khi runAll: bắt lỗi và hiển thị SnackBar, không crash',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          fakeService.nextRunAllError = StorageException('Lỗi ổ cứng');
+          final runBtn = find.byKey(const Key('batch_run_all_btn'));
+          await tester.ensureVisible(runBtn);
+          await tester.tap(runBtn);
+          await tester.pump();
+
+          expect(find.text('Lỗi lưu trữ khi chạy tất cả'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        'Xử lý lỗi khi pauseAll: bắt lỗi và hiển thị SnackBar, không crash',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+          await fakeService.start('task_1');
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          fakeService.nextPauseAllError = StorageException('Lỗi pause');
+          final pauseBtn = find.byKey(const Key('batch_pause_all_btn'));
+          await tester.ensureVisible(pauseBtn);
+          await tester.tap(pauseBtn);
+          await tester.pump();
+
+          expect(find.text('Lỗi lưu trữ khi tạm dừng tất cả'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        'Xử lý lỗi khi resetAll: bắt lỗi và hiển thị SnackBar, không crash',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          fakeService.nextResetAllError = StorageException('Lỗi reset');
+          final resetBtn = find.byKey(const Key('batch_reset_all_btn'));
+          await tester.ensureVisible(resetBtn);
+          await tester.tap(resetBtn);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Xác nhận reset tất cả'), findsOneWidget);
+          await tester.tap(find.text('Reset'));
+          await tester.pump(const Duration(milliseconds: 300));
+
+          expect(find.text('Lỗi lưu trữ khi reset tất cả'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        'Xử lý lỗi khi deleteAll: bắt lỗi và hiển thị SnackBar, không crash',
+        (WidgetTester tester) async {
+          await fakeService.createTask(
+            name: 'Task 1',
+            colorValue: Colors.blue.toARGB32(),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(home: HomeScreen(service: fakeService)),
+          );
+          await tester.pump();
+
+          fakeService.nextDeleteAllError = StorageException('Lỗi delete');
+          final deleteBtn = find.byKey(const Key('batch_delete_all_btn'));
+          await tester.ensureVisible(deleteBtn);
+          await tester.tap(deleteBtn);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Xác nhận xóa tất cả'), findsOneWidget);
+          await tester.tap(find.text('Xóa'));
+          await tester.pump(const Duration(milliseconds: 300));
+
+          expect(find.text('Lỗi lưu trữ khi xóa tất cả'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    });
   });
 }
