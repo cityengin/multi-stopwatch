@@ -18,6 +18,7 @@ class TaskCard extends StatelessWidget {
     required this.onRename,
     required this.onChangeColor,
     required this.onDelete,
+    this.onTap,
   });
 
   final TaskSnapshot task;
@@ -28,6 +29,7 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onRename;
   final VoidCallback onChangeColor;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -47,164 +49,170 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: taskColor.withAlpha(120), width: 1.5),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Vòng tròn màu nhận diện của đồng hồ
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: taskColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    task.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Badge trạng thái
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha(40),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w600,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Vòng tròn màu nhận diện của đồng hồ
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: taskColor,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-                // Menu các thao tác thêm
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: 'Tùy chọn',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'rename':
-                        onRename();
-                      case 'color':
-                        onChangeColor();
-                      case 'delete':
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'rename',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 20),
-                          SizedBox(width: 8),
-                          Text('Đổi tên'),
-                        ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      task.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Badge trạng thái
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    PopupMenuItem(
-                      value: 'color',
-                      child: Row(
-                        children: [
-                          Icon(Icons.palette, size: 20),
-                          SizedBox(width: 8),
-                          Text('Đổi màu'),
-                        ],
+                  ),
+                  // Menu các thao tác thêm
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'Tùy chọn',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'rename':
+                          onRename();
+                        case 'color':
+                          onChangeColor();
+                        case 'delete':
+                          onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'rename',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Đổi tên'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'color',
+                        child: Row(
+                          children: [
+                            Icon(Icons.palette, size: 20),
+                            SizedBox(width: 8),
+                            Text('Đổi màu'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text('Xóa', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Hiển thị thời gian chạy mm:ss.cs qua ElapsedText
+              Row(
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 20,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  ElapsedText(
+                    taskId: task.id,
+                    initialElapsed: task.elapsed,
+                    service: service,
+                    throttleDuration: const Duration(milliseconds: 33),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'monospace',
+                      letterSpacing: 1.2,
+                      color: task.status == TaskStatus.running
+                          ? taskColor
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Divider(height: 16),
+              // Hàng nút điều khiển start / pause nhanh
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (task.status == TaskStatus.idle)
+                    FilledButton.icon(
+                      key: Key('start_btn_${task.id}'),
+                      onPressed: onStart,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Bắt đầu'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
                       ),
                     ),
-                    PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red, size: 20),
-                          SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: Colors.red)),
-                        ],
+                  if (task.status == TaskStatus.running)
+                    FilledButton.icon(
+                      key: Key('pause_btn_${task.id}'),
+                      onPressed: onPause,
+                      icon: const Icon(Icons.pause),
+                      label: const Text('Tạm dừng'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.orange.shade800,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Hiển thị thời gian chạy mm:ss.cs qua ElapsedText
-            Row(
-              children: [
-                Icon(
-                  Icons.timer_outlined,
-                  size: 20,
-                  color: Colors.grey.shade600,
-                ),
-                const SizedBox(width: 8),
-                ElapsedText(
-                  taskId: task.id,
-                  initialElapsed: task.elapsed,
-                  service: service,
-                  throttleDuration: const Duration(milliseconds: 33),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1.2,
-                    color: task.status == TaskStatus.running ? taskColor : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Divider(height: 16),
-            // Hàng nút điều khiển start / pause nhanh
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (task.status == TaskStatus.idle)
-                  FilledButton.icon(
-                    key: Key('start_btn_${task.id}'),
-                    onPressed: onStart,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Bắt đầu'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
+                  if (task.status == TaskStatus.paused)
+                    FilledButton.icon(
+                      key: Key('resume_btn_${task.id}'),
+                      onPressed: onResume,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Tiếp tục'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                      ),
                     ),
-                  ),
-                if (task.status == TaskStatus.running)
-                  FilledButton.icon(
-                    key: Key('pause_btn_${task.id}'),
-                    onPressed: onPause,
-                    icon: const Icon(Icons.pause),
-                    label: const Text('Tạm dừng'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange.shade800,
-                    ),
-                  ),
-                if (task.status == TaskStatus.paused)
-                  FilledButton.icon(
-                    key: Key('resume_btn_${task.id}'),
-                    onPressed: onResume,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Tiếp tục'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
-                    ),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

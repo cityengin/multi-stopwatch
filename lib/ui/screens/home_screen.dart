@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/stopwatch_service.dart';
 import '../scope/stopwatch_scope.dart';
 import '../widgets/task_card.dart';
+import 'task_detail_screen.dart';
 
 /// Màn hình danh sách các đồng hồ bấm giờ song song.
 ///
@@ -60,10 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
     );
   }
 
@@ -73,7 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } on StopwatchException catch (error) {
       final msg = switch (error) {
         TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
-        InvalidTransitionException(:final action) => 'Không thể $action lúc này',
+        InvalidTransitionException(:final action) =>
+          'Không thể $action lúc này',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
@@ -87,7 +86,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } on StopwatchException catch (error) {
       final msg = switch (error) {
         TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
-        InvalidTransitionException(:final action) => 'Không thể $action lúc này',
+        InvalidTransitionException(:final action) =>
+          'Không thể $action lúc này',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
@@ -101,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } on StopwatchException catch (error) {
       final msg = switch (error) {
         TaskNotFoundException() => 'Đồng hồ không còn tồn tại',
-        InvalidTransitionException(:final action) => 'Không thể $action lúc này',
+        InvalidTransitionException(:final action) =>
+          'Không thể $action lúc này',
       };
       _showErrorSnackBar(msg);
     } on StorageException {
@@ -146,7 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: _presetColors.map((color) {
                         final isSelected = color == selectedColor;
                         return InkWell(
-                          onTap: () => setDialogState(() => selectedColor = color),
+                          onTap: () =>
+                              setDialogState(() => selectedColor = color),
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
                             width: 36,
@@ -169,7 +171,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : null,
                             ),
                             child: isSelected
-                                ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
                                 : null,
                           ),
                         );
@@ -270,7 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _presetColors.map((color) {
-                  final isSelected = color.toARGB32() == selectedColor.toARGB32();
+                  final isSelected =
+                      color.toARGB32() == selectedColor.toARGB32();
                   return InkWell(
                     onTap: () => setDialogState(() => selectedColor = color),
                     borderRadius: BorderRadius.circular(20),
@@ -295,7 +302,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             : null,
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 20)
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
+                            )
                           : null,
                     ),
                   );
@@ -319,10 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        await _service.changeTaskColor(
-          task.id,
-          selectedColor.toARGB32(),
-        );
+        await _service.changeTaskColor(task.id, selectedColor.toARGB32());
       } on StopwatchException {
         _showErrorSnackBar('Đồng hồ không còn tồn tại');
       } on StorageException {
@@ -360,13 +368,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _navigateToDetail(TaskSnapshot task) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TaskDetailScreen(
+          taskId: task.id,
+          initialTask: task,
+          service: _service,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Multi-Stopwatch'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Multi-Stopwatch'), centerTitle: true),
       body: StreamBuilder<List<TaskSnapshot>>(
         stream: _tasksStream,
         initialData: _service.currentTasks,
@@ -400,16 +417,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Chưa có đồng hồ nào',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade500,
-                        ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -425,6 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 key: ValueKey(task.id),
                 task: task,
                 service: _service,
+                onTap: () => _navigateToDetail(task),
                 onStart: () => _handleStart(task.id),
                 onPause: () => _handlePause(task.id),
                 onResume: () => _handleResume(task.id),

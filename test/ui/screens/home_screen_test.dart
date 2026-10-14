@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:multi_stopwatch/ui/scope/stopwatch_scope.dart';
 import 'package:multi_stopwatch/ui/screens/home_screen.dart';
+import 'package:multi_stopwatch/ui/screens/task_detail_screen.dart';
 import 'package:multi_stopwatch/ui/widgets/task_card.dart';
 
 import '../fakes/fake_stopwatch_service.dart';
@@ -18,9 +19,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
 
       // Chờ frame đầu tiên dựng từ initialData
@@ -43,9 +42,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
       await tester.pump();
 
@@ -59,9 +56,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
       await tester.pump();
 
@@ -94,9 +89,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
       await tester.pump();
 
@@ -137,9 +130,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
       await tester.pump();
 
@@ -174,9 +165,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
+        MaterialApp(home: HomeScreen(service: fakeService)),
       );
       await tester.pump();
 
@@ -221,5 +210,26 @@ void main() {
         expect(find.text('Task từ Scope'), findsOneWidget);
       },
     );
+
+    testWidgets('Nhấn vào thẻ TaskCard điều hướng sang TaskDetailScreen', (
+      WidgetTester tester,
+    ) async {
+      await fakeService.createTask(
+        name: 'Đồng hồ chi tiết',
+        colorValue: Colors.indigo.toARGB32(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HomeScreen(service: fakeService)),
+      );
+      await tester.pump();
+
+      // Nhấn vào tên task trên card để điều hướng
+      await tester.tap(find.text('Đồng hồ chi tiết'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TaskDetailScreen), findsOneWidget);
+      expect(find.text('Danh sách vòng (0)'), findsOneWidget);
+    });
   });
 }
