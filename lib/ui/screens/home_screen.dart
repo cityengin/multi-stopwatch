@@ -7,7 +7,6 @@ import '../../core/transformers/rate_limit.dart';
 import '../scope/stopwatch_scope.dart';
 import '../widgets/task_card.dart';
 import 'debug_screen.dart';
-import 'event_lab_screen.dart';
 import 'task_detail_screen.dart';
 
 /// Màn hình danh sách các đồng hồ bấm giờ song song.
@@ -500,11 +499,6 @@ class _HomeScreenState extends State<HomeScreen> {
         .push(MaterialPageRoute(builder: (context) => const DebugScreen()));
   }
 
-  void _navigateToLab() {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (context) => const EventLabScreen()));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -512,12 +506,6 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Multi-Stopwatch'),
         centerTitle: true,
         actions: [
-          IconButton(
-            key: const Key('home_lab_btn'),
-            icon: const Icon(Icons.science_outlined),
-            tooltip: 'Phòng Lab Event Loop',
-            onPressed: _navigateToLab,
-          ),
           IconButton(
             key: const Key('home_debug_btn'),
             icon: const Icon(Icons.bug_report_outlined),
