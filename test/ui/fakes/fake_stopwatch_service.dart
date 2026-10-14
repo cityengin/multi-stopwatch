@@ -200,6 +200,55 @@ class FakeStopwatchService implements StopwatchService {
   }
 
   @override
+  Future<void> runAll() => _updateAll(
+    (task) => task.status != TaskStatus.running,
+    (task) => task.copyWith(status: TaskStatus.running),
+  );
+
+  @override
+  Future<void> pauseAll() => _updateAll(
+    (task) => task.status == TaskStatus.running,
+    (task) => task.copyWith(status: TaskStatus.paused),
+  );
+
+  @override
+  Future<void> resetAll() => _updateAll(
+    (task) => task.status != TaskStatus.idle,
+    (task) => task.copyWith(
+      status: TaskStatus.idle,
+      elapsed: Duration.zero,
+      laps: const [],
+    ),
+  );
+
+  @override
+  Future<void> deleteAll() async {
+    if (_tasks.isEmpty) return;
+    _tasks.clear();
+    for (final controller in _elapsedControllers.values) {
+      await controller.close();
+    }
+    _elapsedControllers.clear();
+    _notifyTasks();
+  }
+
+  /// Áp [update] cho mọi đồng hồ thỏa [inScope] rồi phát tasksStream một lần,
+  /// giống quy ước thao tác hàng loạt của [StopwatchService].
+  Future<void> _updateAll(
+    bool Function(TaskSnapshot task) inScope,
+    TaskSnapshot Function(TaskSnapshot task) update,
+  ) async {
+    var changed = false;
+    for (var i = 0; i < _tasks.length; i++) {
+      if (inScope(_tasks[i])) {
+        _tasks[i] = update(_tasks[i]);
+        changed = true;
+      }
+    }
+    if (changed) _notifyTasks();
+  }
+
+  @override
   Future<void> dispose() async {
     await _tasksController.close();
     for (final controller in _elapsedControllers.values) {

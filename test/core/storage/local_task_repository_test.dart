@@ -37,12 +37,51 @@ class _FailingPreferences implements SharedPreferences {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// [SharedPreferences] giả giữ một giá trị và đếm số lần `setString`, để
+/// kiểm tra một lô chỉ tốn đúng một lần ghi.
+class _CountingPreferences implements SharedPreferences {
+  String? _stored;
+  int writes = 0;
+
+  @override
+  String? getString(String key) => _stored;
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    writes++;
+    _stored = value;
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   runTaskRepositoryContract(_repository);
 
   group('LocalTaskRepository', () {
+    test('upsertAll và deleteAll ghi đúng MỘT lần setString cho cả lô; '
+        'không có id nào để xóa thì không ghi', () async {
+      final preferences = _CountingPreferences();
+      final repository = LocalTaskRepository(preferences);
+
+      await repository.upsertAll([
+        contractTask('a'),
+        contractTask('b'),
+        contractTask('c'),
+      ]);
+      expect(preferences.writes, 1);
+      await repository.deleteAll(['a', 'c']);
+      expect(preferences.writes, 2);
+      await repository.deleteAll(['khong-co']);
+      await repository.upsertAll(const []);
+      expect(preferences.writes, 2);
+      expect((await repository.loadAll()).map((t) => t.id), ['b']);
+    });
+
     test(
       'ghi thất bại (setString trả false hoặc ném lỗi) báo StorageException',
       () async {

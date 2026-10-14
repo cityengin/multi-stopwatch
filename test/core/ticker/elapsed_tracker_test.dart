@@ -2,6 +2,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:multi_stopwatch/core/ticker/elapsed_tracker.dart';
 import 'package:multi_stopwatch/core/ticker/tick_source.dart';
+import 'package:multi_stopwatch/core/ticker/time_source.dart';
 
 import '../support/fake_time_sources.dart';
 
@@ -60,6 +61,24 @@ void main() {
       expect(tracker.elapsed, Duration.zero);
       expect(tracker.accumulated, Duration.zero);
       expect(tracker.runningSince, isNull);
+    });
+
+    test('start/stop nhận mốc đọc sẵn: hai tracker dùng chung một mốc thì có '
+        'cùng runningSince và cùng elapsed khi dừng', () {
+      final first = ElapsedTracker(timeSource: time);
+      final second = ElapsedTracker(timeSource: time);
+      final startAt = time.read();
+      first.start(startAt);
+      time.advance(const Duration(seconds: 1));
+      second.start(startAt);
+      time.advance(const Duration(seconds: 2));
+      final stopAt = time.read();
+      time.advance(const Duration(seconds: 5));
+
+      expect(first.runningSince, startAt.wall);
+      expect(second.runningSince, startAt.wall);
+      expect(first.stop(stopAt), const Duration(seconds: 3));
+      expect(second.stop(stopAt), const Duration(seconds: 3));
     });
 
     test('start khi đang chạy hoặc stop khi đã dừng thì ném StateError', () {

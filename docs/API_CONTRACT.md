@@ -142,7 +142,7 @@ Mọi model đều immutable, so sánh `==` theo giá trị.
 | Kiểu | `Stream<List<TaskSnapshot>>` | `Stream<Duration>` |
 | Broadcast / nhiều nơi listen | Có | Có |
 | Sự kiện đầu tiên | Danh sách hiện tại | Elapsed hiện tại |
-| Phát khi nào | Sau mỗi lần tạo/xóa/đổi tên/đổi màu/start/pause/resume/reset/lap | Mỗi tick (~33ms) khi đang chạy; một lần khi pause/reset |
+| Phát khi nào | Sau mỗi lần tạo/xóa/đổi tên/đổi màu/start/pause/resume/reset/lap; đúng một lần cho mỗi thao tác hàng loạt (mục 5.1) | Mỗi tick (~33ms) khi đang chạy; một lần khi pause/reset |
 | Phát theo tick? | **Không** | Có, chỉ khi đồng hồ đang chạy |
 | Giá trị trùng | — | Không phát lặp |
 | Kết thúc (done) | Sau `dispose()` | Khi đồng hồ bị xóa hoặc sau `dispose()` |
@@ -199,6 +199,10 @@ Mọi lệnh trả `Future`; **lỗi luôn trả qua Future**, không ném đồ
 | `resume(id)` | `Future<void>` | paused → running |
 | `reset(id)` | `Future<void>` | Về idle, elapsed = 0, xóa lap; đang idle thì không làm gì |
 | `lap(id)` | `Future<Lap>` | Chỉ khi running; trả về lap vừa ghi |
+| `runAll()` | `Future<void>` | Hàng loạt: idle thì start, paused thì resume (mục 5.1) |
+| `pauseAll()` | `Future<void>` | Hàng loạt: pause mọi đồng hồ running (mục 5.1) |
+| `resetAll()` | `Future<void>` | Hàng loạt: mọi đồng hồ về 00:00, xóa lap (mục 5.1) |
+| `deleteAll()` | `Future<void>` | Hàng loạt: xóa mọi đồng hồ (mục 5.1) |
 | `dispose()` | `Future<void>` | Xem mục 2.4 |
 
 Bật/tắt nút theo `status`:
@@ -212,6 +216,35 @@ Bật/tắt nút theo `status`:
 Thời điểm UI thấy thay đổi:
 - `start`, `pause`, `resume`, `reset`, `lap`, `renameTask`, `changeTaskColor`: stream phát **ngay**, rồi mới lưu. Lưu lỗi thì trạng thái được hoàn tác và stream phát lại trạng thái cũ.
 - `createTask`, `deleteTask`: chờ lưu xong mới phát. Với repository có độ trễ, nên hiện loading trong lúc chờ Future.
+
+### 5.1. Thao tác hàng loạt
+
+| Lệnh | Tác động lên | Bỏ qua | Kết quả |
+|---|---|---|---|
+| `runAll()` | idle, paused | running | Tất cả thành running; đồng hồ paused chạy tiếp từ elapsed đã có |
+| `pauseAll()` | running | idle, paused | Thành paused, giữ elapsed và lap |
+| `resetAll()` | running, paused | idle (vốn đã ở 0) | Thành idle, elapsed = 0, xóa hết lap (giống `reset`) |
+| `deleteAll()` | mọi đồng hồ | — | Danh sách rỗng; `elapsedStream` của từng đồng hồ phát done |
+
+Quy ước chung:
+- **Một mốc thời gian cho cả lô:** các đồng hồ cùng một lần bấm "Chạy tất cả" có cùng thời điểm bắt đầu, "Dừng tất cả" dừng ở cùng thời điểm.
+- **`tasksStream` phát đúng một lần** sau khi cả lô đã áp dụng, không phát riêng cho từng đồng hồ. UI không bao giờ thấy "nửa lô".
+- **Ghi lưu trữ một lần** cho cả lô; cả lô cùng được lưu hoặc cùng không.
+- **Không có đồng hồ nào thuộc phạm vi thì không làm gì:** không phát, không ghi, Future vẫn hoàn thành bình thường.
+- **Thời điểm UI thấy thay đổi** giống lệnh đơn lẻ: `runAll`, `pauseAll`, `resetAll` phát ngay rồi mới lưu, lưu lỗi thì cả lô được hoàn tác và `tasksStream` phát lại trạng thái cũ một lần. `deleteAll` chờ lưu xong mới phát; lưu lỗi thì không đồng hồ nào bị xóa.
+- **Lỗi:** `StorageException` như trên; gọi sau `dispose()` thì `StateError`.
+
+Bật/tắt nút hàng loạt: tính từ danh sách mới nhất của `tasksStream` (hoặc `currentTasks`), không cần tự đếm:
+
+```dart
+final tasks = snapshot.data ?? const <TaskSnapshot>[];
+final canRunAll = tasks.any((t) => t.status != TaskStatus.running);
+final canPauseAll = tasks.any((t) => t.status == TaskStatus.running);
+final canResetAll = tasks.any((t) => t.status != TaskStatus.idle);
+final canDeleteAll = tasks.isNotEmpty;
+```
+
+Vì mỗi lệnh hàng loạt chỉ phát một lần, các nút này đổi trạng thái đúng một lần sau mỗi lần bấm.
 
 ## 6. Lỗi
 
@@ -311,7 +344,7 @@ Mỗi kịch bản có `title` và `explanation` (tiếng Việt) để hiển t
 
 | Lớp | Vai trò |
 |---|---|
-| `TaskRepository` | Interface lưu trữ (`loadAll`, `upsert`, `delete`); mọi thao tác idempotent |
+| `TaskRepository` | Interface lưu trữ (`loadAll`, `upsert`, `delete`, và ghi hàng loạt `upsertAll`, `deleteAll` trong một lần ghi); mọi thao tác idempotent |
 | `StopwatchTask` | Dạng lưu trữ của một đồng hồ (`accumulated`, `runningSince`...) |
 | `TickSource` | Nguồn tick dùng chung (`interval` mặc định 33ms); Timer chỉ chạy khi có người nghe |
 | `ElapsedTracker` | Tính elapsed theo mốc thời gian, bù thời gian máy ngủ, khôi phục sau restart |

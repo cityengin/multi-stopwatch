@@ -17,6 +17,32 @@ class FakeAsyncTimeSource implements TimeSource {
   Duration monotonicNow() => _async.elapsed;
 }
 
+/// [TimeSource] mà mỗi lần đọc giờ hệ thống lại tiến thêm [step]; đồng hồ đơn
+/// điệu luôn khớp với lần đọc giờ gần nhất.
+///
+/// Giả lập thời gian trôi giữa hai lần đọc liên tiếp, nên hai đồng hồ tự đọc
+/// thời gian riêng sẽ ra hai mốc khác nhau. Dùng để chứng minh một lô thao
+/// tác thật sự dùng chung đúng một mốc.
+class SteppingTimeSource implements TimeSource {
+  SteppingTimeSource({
+    this.step = const Duration(milliseconds: 1),
+    DateTime? start,
+  }) : _start = (start ?? DateTime.utc(2026, 1, 1)).toUtc();
+
+  final Duration step;
+  final DateTime _start;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  DateTime now() {
+    _elapsed += step;
+    return _start.add(_elapsed);
+  }
+
+  @override
+  Duration monotonicNow() => _elapsed;
+}
+
 /// [TimeSource] tua bằng tay, điều khiển riêng được giờ hệ thống và đồng hồ
 /// đơn điệu để giả lập máy ngủ và chỉnh giờ.
 class ManualTimeSource implements TimeSource {

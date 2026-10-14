@@ -42,6 +42,21 @@ export 'stopwatch_exceptions.dart';
 /// running --lap-->    running   (thêm một Lap)
 /// bất kỳ  --reset-->  idle      (elapsed = 0, xóa lap; idle -> idle không lỗi)
 /// ```
+///
+/// Quy ước của thao tác hàng loạt ([runAll], [pauseAll], [resetAll],
+/// [deleteAll]):
+/// - Cả lô dùng chung MỘT mốc thời gian. Vì sao: các đồng hồ cùng một lần bấm
+///   phải bắt đầu/dừng ở cùng một thời điểm; nếu mỗi đồng hồ tự đọc thời gian
+///   thì các mốc lệch nhau theo thứ tự xử lý.
+/// - [tasksStream] phát MỘT lần sau khi cả lô đã áp dụng. Vì sao: UI rebuild
+///   một lần thay vì một lần cho mỗi đồng hồ, và không bao giờ thấy "nửa lô".
+/// - Ghi lưu trữ MỘT lần cho cả lô. Vì sao: một lần I/O thay vì N lần, và cả
+///   lô cùng được lưu hoặc cùng không.
+/// - Không có đồng hồ nào thuộc phạm vi thì không làm gì: không phát, không
+///   ghi.
+/// - Lỗi giống lệnh đơn lẻ: `StorageException` thì [runAll], [pauseAll],
+///   [resetAll] hoàn tác cả lô ([tasksStream] phát lại trạng thái cũ một lần),
+///   còn [deleteAll] không xóa gì; gọi sau [dispose] thì `StateError`.
 abstract interface class StopwatchService {
   /// Danh sách đồng hồ tại lúc gọi, theo thứ tự tạo; list không sửa được.
   ///
@@ -53,7 +68,8 @@ abstract interface class StopwatchService {
   ///
   /// - Broadcast: nhiều widget có thể listen cùng lúc.
   /// - Mỗi listener nhận danh sách hiện tại làm sự kiện đầu tiên, sau đó nhận
-  ///   bản mới sau mỗi lần tạo/xóa/đổi tên/đổi màu/start/pause/resume/reset/lap.
+  ///   bản mới sau mỗi lần tạo/xóa/đổi tên/đổi màu/start/pause/resume/reset/lap,
+  ///   và đúng một bản cho mỗi thao tác hàng loạt.
   /// - KHÔNG phát theo từng tick: `elapsed` trong snapshot là giá trị lúc phát.
   ///   Vì sao: tránh rebuild cả danh sách mỗi tick; ô hiển thị giờ tự lấy từ
   ///   [elapsedStream].
@@ -106,6 +122,21 @@ abstract interface class StopwatchService {
 
   /// Ghi một lap khi đang running; trả về lap vừa ghi.
   Future<Lap> lap(String taskId);
+
+  /// Chạy mọi đồng hồ chưa chạy: idle thì start, paused thì resume; đồng hồ
+  /// đang running giữ nguyên. Xem quy ước thao tác hàng loạt ở đầu class.
+  Future<void> runAll();
+
+  /// Pause mọi đồng hồ đang running; đồng hồ idle/paused giữ nguyên.
+  Future<void> pauseAll();
+
+  /// Đưa mọi đồng hồ về idle: elapsed = 0 và xóa hết lap, giống [reset]. Đồng
+  /// hồ idle vốn đã ở 0 nên không bị ghi lại.
+  Future<void> resetAll();
+
+  /// Xóa mọi đồng hồ; mọi [elapsedStream] của chúng phát done. Giống
+  /// [deleteTask], chỉ xóa khỏi danh sách sau khi lưu trữ đã xóa xong.
+  Future<void> deleteAll();
 
   /// Dừng mọi Timer, đóng mọi StreamController và hủy mọi subscription nội bộ.
   ///

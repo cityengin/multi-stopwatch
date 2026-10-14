@@ -72,6 +72,55 @@ void main() {
       });
     });
 
+    test('upsertAll/deleteAll: cả lô là một request (chờ latency một lần); '
+        'lỗi thì không đồng hồ nào bị ghi', () {
+      fakeAsync((async) {
+        final repository = InMemoryTaskRepository(
+          initial: [contractTask('a')],
+          latency: const Duration(milliseconds: 300),
+        );
+        List<String>? ids() {
+          List<String>? result;
+          repository.loadAll().then(
+            (tasks) => result = [for (final t in tasks) t.id],
+          );
+          async.elapse(const Duration(milliseconds: 300));
+          return result;
+        }
+
+        var saved = false;
+        repository
+            .upsertAll([contractTask('b'), contractTask('c')])
+            .then((_) => saved = true);
+        async.elapse(const Duration(milliseconds: 299));
+        expect(saved, isFalse);
+        async.elapse(const Duration(milliseconds: 1));
+        expect(saved, isTrue);
+
+        repository.failNext();
+        Object? error;
+        repository
+            .upsertAll([contractTask('d'), contractTask('e')])
+            .catchError((Object e) => error = e);
+        async.elapse(const Duration(milliseconds: 300));
+        expect(error, isA<StorageException>());
+        expect(ids(), ['a', 'b', 'c']);
+
+        repository.failNext();
+        error = null;
+        repository.deleteAll(['a', 'b']).catchError((Object e) => error = e);
+        async.elapse(const Duration(milliseconds: 300));
+        expect(error, isA<StorageException>());
+        expect(ids(), ['a', 'b', 'c']);
+
+        var deleted = false;
+        repository.deleteAll(['a', 'b']).then((_) => deleted = true);
+        async.elapse(const Duration(milliseconds: 300));
+        expect(deleted, isTrue);
+        expect(ids(), ['c']);
+      });
+    });
+
     test('failureRate: 0 không bao giờ lỗi, 1 luôn lỗi', () async {
       final repository = InMemoryTaskRepository();
       for (var i = 0; i < 20; i++) {

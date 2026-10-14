@@ -178,43 +178,23 @@ class StopwatchManager implements StopwatchService {
   @override
   Future<void> start(String taskId) => _mutate(taskId, (entry) {
     _expectStatus(entry, 'start', TaskStatus.idle);
-    entry.tracker.start();
-    entry.task = entry.task.copyWith(
-      status: TaskStatus.running,
-      runningSince: entry.tracker.runningSince,
-    );
+    _run(entry);
   });
 
   @override
   Future<void> pause(String taskId) => _mutate(taskId, (entry) {
     _expectStatus(entry, 'pause', TaskStatus.running);
-    entry.task = entry.task.copyWith(
-      status: TaskStatus.paused,
-      accumulated: entry.tracker.stop(),
-      clearRunningSince: true,
-    );
+    _halt(entry);
   });
 
   @override
   Future<void> resume(String taskId) => _mutate(taskId, (entry) {
     _expectStatus(entry, 'resume', TaskStatus.paused);
-    entry.tracker.start();
-    entry.task = entry.task.copyWith(
-      status: TaskStatus.running,
-      runningSince: entry.tracker.runningSince,
-    );
+    _run(entry);
   });
 
   @override
-  Future<void> reset(String taskId) => _mutate(taskId, (entry) {
-    entry.tracker.reset();
-    entry.task = entry.task.copyWith(
-      status: TaskStatus.idle,
-      accumulated: Duration.zero,
-      clearRunningSince: true,
-      laps: const [],
-    );
-  });
+  Future<void> reset(String taskId) => _mutate(taskId, _clear);
 
   @override
   Future<Lap> lap(String taskId) => _mutate(taskId, (entry) {
@@ -225,6 +205,32 @@ class StopwatchManager implements StopwatchService {
       runningSince: entry.tracker.runningSince,
     );
     return lap;
+  });
+
+  @override
+  Future<void> runAll() =>
+      _mutateBatch((task) => task.status != TaskStatus.running, _run);
+
+  @override
+  Future<void> pauseAll() =>
+      _mutateBatch((task) => task.status == TaskStatus.running, _halt);
+
+  @override
+  Future<void> resetAll() => _mutateBatch(
+    (task) => task.status != TaskStatus.idle,
+    (entry, _) => _clear(entry),
+  );
+
+  @override
+  Future<void> deleteAll() => _enqueue(() async {
+    if (_entries.isEmpty) return;
+    await _repository.deleteAll([..._entries.keys]);
+    final removed = [..._entries.values];
+    _entries.clear();
+    for (final entry in removed) {
+      entry.close();
+    }
+    _emitTasks();
   });
 
   @override
@@ -278,6 +284,70 @@ class StopwatchManager implements StopwatchService {
         }
         return result;
       });
+
+  /// Lệnh hàng loạt: áp [apply] cho mọi đồng hồ thỏa [inScope] tại CÙNG một
+  /// mốc thời gian, báo UI một lần rồi ghi repository một lần; lưu lỗi thì
+  /// hoàn tác cả lô và báo lại UI một lần, giống [_mutate] của lệnh đơn lẻ.
+  ///
+  /// Vì sao đọc mốc một lần ở đây rồi truyền xuống: mỗi đồng hồ tự đọc thời
+  /// gian thì các mốc lệch nhau theo thứ tự duyệt. Vì sao phát và ghi một lần:
+  /// UI rebuild một lần, không thấy "nửa lô", và cả lô cùng được lưu hoặc
+  /// cùng không. Không có đồng hồ nào thuộc phạm vi thì không phát, không ghi.
+  Future<void> _mutateBatch(
+    bool Function(StopwatchTask task) inScope,
+    void Function(_TaskEntry entry, TimeReading at) apply,
+  ) => _enqueue(() async {
+    final targets = [
+      for (final entry in _entries.values)
+        if (inScope(entry.task)) entry,
+    ];
+    if (targets.isEmpty) return;
+    final at = _time.read();
+    final previous = [for (final entry in targets) (entry, entry.task)];
+    for (final entry in targets) {
+      apply(entry, at);
+      entry.notifyChanged();
+    }
+    _emitTasks();
+    try {
+      await _repository.upsertAll([for (final entry in targets) entry.task]);
+    } catch (_) {
+      for (final (entry, task) in previous) {
+        entry.restore(task);
+      }
+      _emitTasks();
+      rethrow;
+    }
+  });
+
+  /// idle hoặc paused -> running, bắt đầu tại [at] (bỏ trống: lúc gọi).
+  static void _run(_TaskEntry entry, [TimeReading? at]) {
+    entry.tracker.start(at);
+    entry.task = entry.task.copyWith(
+      status: TaskStatus.running,
+      runningSince: entry.tracker.runningSince,
+    );
+  }
+
+  /// running -> paused, dừng tại [at] (bỏ trống: lúc gọi).
+  static void _halt(_TaskEntry entry, [TimeReading? at]) {
+    entry.task = entry.task.copyWith(
+      status: TaskStatus.paused,
+      accumulated: entry.tracker.stop(at),
+      clearRunningSince: true,
+    );
+  }
+
+  /// Về idle: elapsed = 0 và xóa hết lap.
+  static void _clear(_TaskEntry entry) {
+    entry.tracker.reset();
+    entry.task = entry.task.copyWith(
+      status: TaskStatus.idle,
+      accumulated: Duration.zero,
+      clearRunningSince: true,
+      laps: const [],
+    );
+  }
 
   /// [Lap.split] = total hiện tại trừ total của lap trước; [Lap.delta] = split
   /// này trừ split của lap trước.

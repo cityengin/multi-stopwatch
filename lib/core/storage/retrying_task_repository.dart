@@ -45,6 +45,20 @@ class RetryingTaskRepository implements TaskRepository {
   @override
   Future<void> delete(String taskId) => _retry(() => _inner.delete(taskId));
 
+  /// Vì sao chép sang list trước: [Iterable] có thể được tính lười hoặc chỉ
+  /// duyệt được một lần, mà mỗi lần thử lại phải gửi đúng cùng một lô.
+  @override
+  Future<void> upsertAll(Iterable<StopwatchTask> tasks) {
+    final batch = tasks.toList();
+    return _retry(() => _inner.upsertAll(batch));
+  }
+
+  @override
+  Future<void> deleteAll(Iterable<String> taskIds) {
+    final batch = taskIds.toList();
+    return _retry(() => _inner.deleteAll(batch));
+  }
+
   Future<T> _retry<T>(Future<T> Function() action) async {
     var delay = initialDelay;
     for (var attempt = 1; ; attempt++) {
