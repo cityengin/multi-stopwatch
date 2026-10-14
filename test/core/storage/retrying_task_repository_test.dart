@@ -22,6 +22,14 @@ class _BrokenRepository implements TaskRepository {
 
   @override
   Future<void> delete(String taskId) async => throw StateError('hỏng');
+
+  @override
+  Future<void> upsertAll(Iterable<StopwatchTask> tasks) async =>
+      throw StateError('hỏng');
+
+  @override
+  Future<void> deleteAll(Iterable<String> taskIds) async =>
+      throw StateError('hỏng');
 }
 
 void main() {
@@ -74,6 +82,38 @@ void main() {
 
         expect(error, isA<StorageException>());
         expect(async.pendingTimers, isEmpty);
+      });
+    });
+
+    test('upsertAll và deleteAll được thử lại nguyên cả lô', () {
+      fakeAsync((async) {
+        final api = InMemoryTaskRepository(initial: [contractTask('x')]);
+        final repository = RetryingTaskRepository(
+          api,
+          initialDelay: const Duration(milliseconds: 100),
+        );
+        List<String>? ids() {
+          List<String>? result;
+          api.loadAll().then((tasks) => result = [for (final t in tasks) t.id]);
+          async.flushMicrotasks();
+          return result;
+        }
+
+        api.failNext();
+        var saved = false;
+        repository
+            .upsertAll([contractTask('a'), contractTask('b')])
+            .then((_) => saved = true);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(saved, isTrue);
+        expect(ids(), ['x', 'a', 'b']);
+
+        api.failNext();
+        var deleted = false;
+        repository.deleteAll(['x', 'a']).then((_) => deleted = true);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(deleted, isTrue);
+        expect(ids(), ['b']);
       });
     });
 

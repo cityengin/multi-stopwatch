@@ -9,9 +9,11 @@ import 'package:multi_stopwatch/core/services/stopwatch_service.dart';
 import 'package:multi_stopwatch/core/storage/in_memory_task_repository.dart';
 import 'package:multi_stopwatch/core/storage/task_repository.dart';
 import 'package:multi_stopwatch/core/ticker/tick_source.dart';
+import 'package:multi_stopwatch/core/ticker/time_source.dart';
 
 import 'package:multi_stopwatch/core/storage/retrying_task_repository.dart';
 
+import '../support/counting_task_repository.dart';
 import '../support/fake_time_sources.dart';
 
 const _blue = 0xFF2196F3;
@@ -77,12 +79,13 @@ StopwatchManager _open(
   TaskRepository? repository,
   TickSource? tickSource,
   StreamTracker? tracker,
+  TimeSource? timeSource,
 }) => _settle(
   async,
   StopwatchManager.open(
     repository: repository ?? InMemoryTaskRepository(),
     tickSource: tickSource,
-    timeSource: FakeAsyncTimeSource(async),
+    timeSource: timeSource ?? FakeAsyncTimeSource(async),
     tracker: tracker,
   ),
 );
@@ -99,6 +102,10 @@ String _create(
 
 TaskSnapshot _snapshot(StopwatchService service, String id) =>
     service.currentTasks.singleWhere((task) => task.id == id);
+
+/// Dữ liệu đang nằm trong [repository], theo id.
+Map<String, StopwatchTask> _saved(FakeAsync async, TaskRepository repository) =>
+    {for (final task in _settle(async, repository.loadAll())) task.id: task};
 
 void main() {
   group('tạo, sửa, xóa', () {
@@ -1110,6 +1117,307 @@ void main() {
         greaterThanOrEqualTo(const Duration(milliseconds: 100)),
       );
       await manager.dispose();
+    });
+  });
+
+  group('thao tác hàng loạt', () {
+    test(
+      'runAll: idle thì start, paused thì resume, running giữ nguyên; '
+      'tasksStream phát 1 lần, repository ghi 1 lần đúng các đồng hồ bị đổi',
+      () {
+        fakeAsync((async) {
+          final repository = CountingTaskRepository();
+          final manager = _open(async, repository: repository);
+          final idle = _create(async, manager, 'Idle');
+          final paused = _create(async, manager, 'Paused');
+          final running = _create(async, manager, 'Running');
+          _settle(async, manager.start(paused));
+          async.elapse(const Duration(seconds: 2));
+          _settle(async, manager.pause(paused));
+          _settle(async, manager.start(running));
+          async.elapse(const Duration(seconds: 1));
+          final runningSince = _saved(async, repository)[running]!.runningSince;
+          final tasks = _Recorder(manager.tasksStream);
+          async.flushMicrotasks();
+          repository.writes.clear();
+
+          _settle(async, manager.runAll());
+
+          expect(tasks.values, hasLength(2));
+          expect(
+            tasks.values.last.map((t) => t.status),
+            everyElement(TaskStatus.running),
+          );
+          expect(repository.writes, ['upsertAll(2)']);
+          final saved = _saved(async, repository);
+          expect(saved[idle]!.runningSince, saved[paused]!.runningSince);
+          expect(saved[running]!.runningSince, runningSince);
+          async.elapse(const Duration(seconds: 1));
+          expect(_snapshot(manager, idle).elapsed, const Duration(seconds: 1));
+          expect(
+            _snapshot(manager, paused).elapsed,
+            const Duration(seconds: 3),
+          );
+          expect(
+            _snapshot(manager, running).elapsed,
+            const Duration(seconds: 2),
+          );
+          _settle(async, manager.dispose());
+        });
+      },
+    );
+
+    test('runAll và pauseAll: mọi đồng hồ trong lô dùng chung đúng một mốc '
+        'thời gian, dù mỗi lần đọc đồng hồ thì thời gian đã trôi', () {
+      fakeAsync((async) {
+        final repository = CountingTaskRepository();
+        final manager = _open(
+          async,
+          repository: repository,
+          timeSource: SteppingTimeSource(),
+        );
+        for (var i = 0; i < 3; i++) {
+          _create(async, manager, 'Đồng hồ $i');
+        }
+
+        _settle(async, manager.runAll());
+        final started = _saved(async, repository).values;
+        expect(started.map((t) => t.runningSince).toSet(), hasLength(1));
+
+        _settle(async, manager.pauseAll());
+        final paused = _saved(async, repository).values;
+        expect(paused.map((t) => t.accumulated).toSet(), hasLength(1));
+        expect(paused.first.accumulated, greaterThan(Duration.zero));
+
+        _settle(async, manager.resetAll());
+        for (final task in manager.currentTasks) {
+          _settle(async, manager.start(task.id));
+        }
+        expect(
+          _saved(async, repository).values.map((t) => t.runningSince).toSet(),
+          hasLength(3),
+        );
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('pauseAll chỉ tác động đồng hồ running', () {
+      fakeAsync((async) {
+        final repository = CountingTaskRepository();
+        final manager = _open(async, repository: repository);
+        final idle = _create(async, manager, 'Idle');
+        final paused = _create(async, manager, 'Paused');
+        final running = _create(async, manager, 'Running');
+        _settle(async, manager.start(paused));
+        async.elapse(const Duration(seconds: 2));
+        _settle(async, manager.pause(paused));
+        _settle(async, manager.start(running));
+        async.elapse(const Duration(seconds: 3));
+        final tasks = _Recorder(manager.tasksStream);
+        async.flushMicrotasks();
+        repository.writes.clear();
+
+        _settle(async, manager.pauseAll());
+        async.elapse(const Duration(seconds: 1));
+
+        expect(tasks.values, hasLength(2));
+        expect(repository.writes, ['upsertAll(1)']);
+        expect(_snapshot(manager, idle).status, TaskStatus.idle);
+        expect(_snapshot(manager, paused).status, TaskStatus.paused);
+        expect(_snapshot(manager, running).status, TaskStatus.paused);
+        expect(_snapshot(manager, idle).elapsed, Duration.zero);
+        expect(_snapshot(manager, paused).elapsed, const Duration(seconds: 2));
+        expect(_snapshot(manager, running).elapsed, const Duration(seconds: 3));
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('resetAll: mọi đồng hồ về 0 và xóa lap; đồng hồ idle không bị ghi '
+        'lại', () {
+      fakeAsync((async) {
+        final repository = CountingTaskRepository();
+        final manager = _open(async, repository: repository);
+        final running = _create(async, manager, 'Running');
+        final paused = _create(async, manager, 'Paused');
+        _create(async, manager, 'Idle');
+        _settle(async, manager.start(running));
+        _settle(async, manager.start(paused));
+        async.elapse(const Duration(seconds: 1));
+        _settle(async, manager.lap(running));
+        _settle(async, manager.lap(paused));
+        async.elapse(const Duration(seconds: 1));
+        _settle(async, manager.lap(running));
+        _settle(async, manager.pause(paused));
+        final tasks = _Recorder(manager.tasksStream);
+        async.flushMicrotasks();
+        repository.writes.clear();
+
+        _settle(async, manager.resetAll());
+        async.elapse(const Duration(seconds: 1));
+
+        expect(tasks.values, hasLength(2));
+        expect(repository.writes, ['upsertAll(2)']);
+        for (final task in manager.currentTasks) {
+          expect(task.status, TaskStatus.idle, reason: task.name);
+          expect(task.elapsed, Duration.zero, reason: task.name);
+          expect(task.laps, isEmpty, reason: task.name);
+        }
+        for (final task in _saved(async, repository).values) {
+          expect(task.status, TaskStatus.idle, reason: task.name);
+          expect(task.accumulated, Duration.zero, reason: task.name);
+          expect(task.laps, isEmpty, reason: task.name);
+        }
+        expect(async.periodicTimerCount, 0);
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('deleteAll: danh sách và repository rỗng, mọi elapsedStream phát '
+        'done; số subscription active về 0, không còn Timer', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final repository = CountingTaskRepository();
+        final manager = _open(async, repository: repository, tracker: tracker);
+        final ids = [
+          for (var i = 0; i < 3; i++) _create(async, manager, 'Đồng hồ $i'),
+        ];
+        _settle(async, manager.start(ids[0]));
+        _settle(async, manager.start(ids[1]));
+        final tasks = _Recorder(manager.tasksStream);
+        final elapsed = [
+          for (final id in ids) _Recorder(manager.elapsedStream(id)),
+        ];
+        async.elapse(const Duration(milliseconds: 100));
+        expect(tracker.activeBySource['TickSource.ticks'], 2);
+        expect(async.periodicTimerCount, 1);
+        final before = tasks.values.length;
+        repository.writes.clear();
+
+        _settle(async, manager.deleteAll());
+
+        expect(manager.currentTasks, isEmpty);
+        expect(tasks.values, hasLength(before + 1));
+        expect(tasks.values.last, isEmpty);
+        expect(repository.writes, ['deleteAll(3)']);
+        expect(_saved(async, repository), isEmpty);
+        expect(elapsed.every((r) => r.done), isTrue);
+        expect(tracker.activeBySource, {'tasksStream': 1});
+        expect(async.periodicTimerCount, 0);
+        expect(async.pendingTimers, isEmpty);
+        tasks.subscription.cancel();
+        async.flushMicrotasks();
+        expect(tracker.activeCount, 0);
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('không có đồng hồ nào thuộc phạm vi thì no-op: không phát, không '
+        'ghi', () {
+      fakeAsync((async) {
+        final repository = CountingTaskRepository();
+        final manager = _open(async, repository: repository);
+        final tasks = _Recorder(manager.tasksStream);
+        async.flushMicrotasks();
+        for (final command in [
+          manager.runAll,
+          manager.pauseAll,
+          manager.resetAll,
+          manager.deleteAll,
+        ]) {
+          _settle(async, command());
+        }
+        expect(tasks.values, hasLength(1));
+        expect(repository.writes, isEmpty);
+
+        final a = _create(async, manager, 'A');
+        final b = _create(async, manager, 'B');
+        var mark = tasks.values.length;
+        repository.writes.clear();
+        _settle(async, manager.pauseAll());
+        _settle(async, manager.resetAll());
+        expect(tasks.values, hasLength(mark));
+        expect(repository.writes, isEmpty);
+
+        _settle(async, manager.start(a));
+        _settle(async, manager.start(b));
+        mark = tasks.values.length;
+        repository.writes.clear();
+        _settle(async, manager.runAll());
+        expect(tasks.values, hasLength(mark));
+        expect(repository.writes, isEmpty);
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('lưu lỗi: runAll/pauseAll/resetAll hoàn tác cả lô (phát lại trạng '
+        'thái cũ một lần); deleteAll không xóa gì', () {
+      fakeAsync((async) {
+        final api = InMemoryTaskRepository();
+        final manager = _open(async, repository: api);
+        final a = _create(async, manager, 'A');
+        final b = _create(async, manager, 'B');
+        _settle(async, manager.start(b));
+        final tasks = _Recorder(manager.tasksStream);
+        async.flushMicrotasks();
+        List<TaskStatus> statuses(List<TaskSnapshot> list) => [
+          for (final task in list) task.status,
+        ];
+
+        api.failNext();
+        expect(_errorOf(async, manager.runAll()), isA<StorageException>());
+        expect(tasks.values.map(statuses), [
+          [TaskStatus.idle, TaskStatus.running],
+          [TaskStatus.running, TaskStatus.running],
+          [TaskStatus.idle, TaskStatus.running],
+        ]);
+
+        api.failNext();
+        expect(_errorOf(async, manager.pauseAll()), isA<StorageException>());
+        expect(_snapshot(manager, b).status, TaskStatus.running);
+        api.failNext();
+        expect(_errorOf(async, manager.resetAll()), isA<StorageException>());
+        expect(_snapshot(manager, b).status, TaskStatus.running);
+        expect(_snapshot(manager, a).status, TaskStatus.idle);
+
+        final before = tasks.values.length;
+        api.failNext();
+        expect(_errorOf(async, manager.deleteAll()), isA<StorageException>());
+        expect(manager.currentTasks, hasLength(2));
+        expect(tasks.values, hasLength(before));
+        _settle(async, manager.dispose());
+      });
+    });
+
+    test('gọi sau dispose: báo StateError qua Future như mọi lệnh khác, không '
+        'phát, không ghi, không rò rỉ', () {
+      fakeAsync((async) {
+        final tracker = StreamTracker(timeSource: FakeAsyncTimeSource(async));
+        final repository = CountingTaskRepository();
+        final manager = _open(async, repository: repository, tracker: tracker);
+        final id = _create(async, manager);
+        _settle(async, manager.start(id));
+        final tasks = _Recorder(manager.tasksStream);
+        final elapsed = _Recorder(manager.elapsedStream(id));
+        async.elapse(const Duration(milliseconds: 100));
+        _settle(async, manager.dispose());
+        repository.writes.clear();
+        final counts = (tasks.values.length, elapsed.values.length);
+
+        for (final command in [
+          manager.runAll,
+          manager.pauseAll,
+          manager.resetAll,
+          manager.deleteAll,
+        ]) {
+          expect(_errorOf(async, command()), isStateError);
+        }
+        async.elapse(const Duration(seconds: 1));
+
+        expect((tasks.values.length, elapsed.values.length), counts);
+        expect(repository.writes, isEmpty);
+        expect(tracker.activeCount, 0);
+        expect(async.pendingTimers, isEmpty);
+      });
     });
   });
 

@@ -52,6 +52,39 @@ void runTaskRepositoryContract(Future<TaskRepository> Function() create) {
       },
     );
 
+    test('upsertAll: như upsert lần lượt — đồng hồ đã có giữ vị trí, đồng hồ '
+        'mới thêm vào cuối theo thứ tự; lô rỗng không làm gì', () async {
+      final repository = await create();
+      await repository.upsert(contractTask('a'));
+      await repository.upsert(contractTask('b'));
+      await repository.upsertAll([
+        contractTask('c'),
+        contractTask('a', name: 'A mới'),
+        contractTask('d'),
+      ]);
+      await repository.upsertAll(const []);
+
+      final tasks = await repository.loadAll();
+      expect(tasks.map((t) => t.id), ['a', 'b', 'c', 'd']);
+      expect(tasks.first.name, 'A mới');
+    });
+
+    test('deleteAll: xóa các id được truyền, bỏ qua id không tồn tại; lô rỗng '
+        'không làm gì', () async {
+      final repository = await create();
+      await repository.upsertAll([
+        contractTask('a'),
+        contractTask('b'),
+        contractTask('c'),
+      ]);
+      await repository.deleteAll(['a', 'c', 'khong-co']);
+      await repository.deleteAll(const []);
+
+      expect((await repository.loadAll()).map((t) => t.id), ['b']);
+      await repository.deleteAll(['b']);
+      expect(await repository.loadAll(), isEmpty);
+    });
+
     test('đồng hồ đang chạy có lap được lưu và đọc lại y hệt, '
         'là object mới', () async {
       final task = StopwatchTask(
