@@ -72,7 +72,7 @@ class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Multi-Stopwatch',
+      title: 'Multi Stopwatch',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
@@ -83,7 +83,7 @@ class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Scaffold(
-              body: Center(child: Text('Lỗi tải dữ liệu: ${snapshot.error}')),
+              body: Center(child: Text('Error loading data: ${snapshot.error}')),
             );
           }
           if (!snapshot.hasData) {

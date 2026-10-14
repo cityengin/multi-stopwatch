@@ -26,7 +26,7 @@ void main() {
       // Chờ frame đầu tiên dựng từ initialData
       await tester.pump();
 
-      expect(find.text('Chưa có đồng hồ nào'), findsOneWidget);
+      expect(find.text('No stopwatches yet'), findsOneWidget);
       expect(find.byType(TaskCard), findsNothing);
     });
 
@@ -50,7 +50,7 @@ void main() {
       expect(find.byType(TaskCard), findsNWidgets(2));
       expect(find.text('Học bài'), findsOneWidget);
       expect(find.text('Chạy bộ'), findsOneWidget);
-      expect(find.text('Sẵn sàng'), findsNWidgets(2));
+      expect(find.text('Ready'), findsNWidgets(2));
     });
 
     testWidgets('Thêm đồng hồ mới qua FAB và Dialog', (
@@ -65,14 +65,14 @@ void main() {
       await tester.tap(find.byKey(const Key('add_task_fab')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Thêm đồng hồ mới'), findsOneWidget);
+      expect(find.text('Add New Stopwatch'), findsOneWidget);
 
       // Nhập tên
       await tester.enterText(find.byType(TextField).last, 'Đọc sách');
       await tester.pump();
 
       // Bấm nút Tạo
-      await tester.tap(find.text('Tạo'));
+      await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
       // Xác nhận task mới xuất hiện trên UI
@@ -94,32 +94,32 @@ void main() {
       );
       await tester.pump();
 
-      // Ban đầu là idle -> nút "Bắt đầu"
-      expect(find.text('Sẵn sàng'), findsOneWidget);
+      // Ban đầu là idle -> nút "Start"
+      expect(find.text('Ready'), findsOneWidget);
       final startBtn = find.byKey(Key('start_btn_${task.id}'));
       expect(startBtn, findsOneWidget);
 
-      // Bấm Bắt đầu -> chuyển running
+      // Bấm Start -> chuyển running
       await tester.tap(startBtn);
       await tester.pump();
 
-      expect(find.text('Đang chạy'), findsOneWidget);
+      expect(find.text('Running'), findsOneWidget);
       final pauseBtn = find.byKey(Key('pause_btn_${task.id}'));
       expect(pauseBtn, findsOneWidget);
 
-      // Bấm Tạm dừng -> chuyển paused
+      // Bấm Pause -> chuyển paused
       await tester.tap(pauseBtn);
       await tester.pump();
 
-      expect(find.text('Tạm dừng'), findsOneWidget);
+      expect(find.text('Paused'), findsOneWidget);
       final resumeBtn = find.byKey(Key('resume_btn_${task.id}'));
       expect(resumeBtn, findsOneWidget);
 
-      // Bấm Tiếp tục -> chuyển running
+      // Bấm Resume -> chuyển running
       await tester.tap(resumeBtn);
       await tester.pump();
 
-      expect(find.text('Đang chạy'), findsOneWidget);
+      expect(find.text('Running'), findsOneWidget);
     });
 
     testWidgets('Đổi tên đồng hồ qua menu tùy chọn', (
@@ -140,17 +140,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Chọn Đổi tên
-      await tester.tap(find.text('Đổi tên'));
+      await tester.tap(find.text('Rename'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Đổi tên đồng hồ'), findsOneWidget);
+      expect(find.text('Rename Stopwatch'), findsOneWidget);
 
       // Nhập tên mới
       await tester.enterText(find.byType(TextField).last, 'Tên mới đã đổi');
       await tester.pump();
 
       // Bấm Lưu
-      await tester.tap(find.text('Lưu'));
+      await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
       expect(find.text('Tên mới đã đổi'), findsOneWidget);
@@ -177,13 +177,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Chọn Xóa
-      await tester.tap(find.text('Xóa'));
+      await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Xác nhận xóa'), findsOneWidget);
+      expect(find.text('Confirm Delete'), findsOneWidget);
 
       // Xác nhận nút Xóa trong Dialog
-      await tester.tap(find.widgetWithText(FilledButton, 'Xóa'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
       await tester.pumpAndSettle();
 
       expect(find.text('Cần xóa'), findsNothing);
@@ -230,7 +230,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TaskDetailScreen), findsOneWidget);
-      expect(find.text('Danh sách vòng (0)'), findsOneWidget);
+      expect(find.text('Laps (0)'), findsOneWidget);
     });
 
     testWidgets(
@@ -280,9 +280,9 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.byType(TaskCard), findsNothing);
-        expect(find.text('Không tìm thấy đồng hồ nào'), findsOneWidget);
+        expect(find.text('No stopwatches found'), findsOneWidget);
         expect(
-          find.text('Không có kết quả khớp với "Bơi lội"'),
+          find.text('No results matching "Bơi lội"'),
           findsOneWidget,
         );
 
@@ -334,14 +334,14 @@ void main() {
       testWidgets(
         'Kiểm tra trạng thái enable/disable của 4 nút thao tác hàng loạt theo dữ liệu',
         (WidgetTester tester) async {
-          // 1. Khi danh sách rỗng: tất cả nút batch đều disabled, nút Thêm enabled
+          // 1. Khi danh sách rỗng: tất cả nút batch đều disabled, FAB enabled
           await tester.pumpWidget(
             MaterialApp(home: HomeScreen(service: fakeService)),
           );
           await tester.pump();
 
-          final addBtn = tester.widget<FilledButton>(
-            find.byKey(const Key('batch_add_btn')),
+          final fab = tester.widget<FloatingActionButton>(
+            find.byKey(const Key('add_task_fab')),
           );
           final runAllBtn = tester.widget<OutlinedButton>(
             find.byKey(const Key('batch_run_all_btn')),
@@ -356,7 +356,8 @@ void main() {
             find.byKey(const Key('batch_delete_all_btn')),
           );
 
-          expect(addBtn.enabled, isTrue);
+          expect(fab.onPressed, isNotNull);
+          expect(find.byKey(const Key('batch_add_btn')), findsNothing);
           expect(runAllBtn.enabled, isFalse);
           expect(pauseAllBtn.enabled, isFalse);
           expect(resetAllBtn.enabled, isFalse);
@@ -528,18 +529,18 @@ void main() {
           await tester.pumpAndSettle();
 
           // Kiểm tra dialog
-          expect(find.text('Xác nhận reset tất cả'), findsOneWidget);
+          expect(find.text('Confirm Reset All'), findsOneWidget);
           expect(
-            find.text('Reset toàn bộ 2 đồng hồ về 00:00 và xóa hết lap?'),
+            find.text('Reset all 2 stopwatches to 00:00 and clear all laps?'),
             findsOneWidget,
           );
 
-          // Bấm Hủy -> không gọi API
-          await tester.tap(find.text('Hủy'));
+          // Bấm Cancel -> không gọi API
+          await tester.tap(find.text('Cancel'));
           await tester.pumpAndSettle();
 
           expect(fakeService.resetAllCalls, 0);
-          expect(find.text('Xác nhận reset tất cả'), findsNothing);
+          expect(find.text('Confirm Reset All'), findsNothing);
 
           // 2. Mở lại dialog và bấm xác nhận Reset
           await tester.ensureVisible(resetBtn);
@@ -582,33 +583,33 @@ void main() {
           await tester.pumpAndSettle();
 
           // Kiểm tra dialog nêu rõ số lượng đồng hồ
-          expect(find.text('Xác nhận xóa tất cả'), findsOneWidget);
+          expect(find.text('Confirm Delete All'), findsOneWidget);
           expect(
             find.text(
-              'Xóa toàn bộ 3 đồng hồ? Hành động này không thể hoàn tác.',
+              'Delete all 3 stopwatches? This action cannot be undone.',
             ),
             findsOneWidget,
           );
 
-          // Bấm Hủy -> không gọi API
-          await tester.tap(find.text('Hủy'));
+          // Bấm Cancel -> không gọi API
+          await tester.tap(find.text('Cancel'));
           await tester.pumpAndSettle();
 
           expect(fakeService.deleteAllCalls, 0);
           expect(fakeService.currentTasks.length, 3);
-          expect(find.text('Xác nhận xóa tất cả'), findsNothing);
+          expect(find.text('Confirm Delete All'), findsNothing);
 
-          // 2. Mở lại dialog và xác nhận Xóa
+          // 2. Mở lại dialog và xác nhận Delete
           await tester.ensureVisible(deleteBtn);
           await tester.tap(deleteBtn);
           await tester.pumpAndSettle();
 
-          await tester.tap(find.text('Xóa'));
+          await tester.tap(find.text('Delete'));
           await tester.pumpAndSettle();
 
           expect(fakeService.deleteAllCalls, 1);
           expect(fakeService.currentTasks.isEmpty, isTrue);
-          expect(find.text('Chưa có đồng hồ nào'), findsOneWidget);
+          expect(find.text('No stopwatches yet'), findsOneWidget);
         },
       );
 
@@ -632,7 +633,7 @@ void main() {
 
           // Xác nhận cuộn ngang hoạt động và không có lỗi overflow
           expect(tester.takeException(), isNull);
-          expect(find.byKey(const Key('batch_add_btn')), findsOneWidget);
+          expect(find.byKey(const Key('batch_add_btn')), findsNothing);
           expect(find.byKey(const Key('batch_run_all_btn')), findsOneWidget);
         },
       );
@@ -656,7 +657,7 @@ void main() {
           await tester.tap(runBtn);
           await tester.pump();
 
-          expect(find.text('Lỗi lưu trữ khi chạy tất cả'), findsOneWidget);
+          expect(find.text('Storage error while running all'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
@@ -681,7 +682,7 @@ void main() {
           await tester.tap(pauseBtn);
           await tester.pump();
 
-          expect(find.text('Lỗi lưu trữ khi tạm dừng tất cả'), findsOneWidget);
+          expect(find.text('Storage error while pausing all'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
@@ -705,11 +706,11 @@ void main() {
           await tester.tap(resetBtn);
           await tester.pumpAndSettle();
 
-          expect(find.text('Xác nhận reset tất cả'), findsOneWidget);
+          expect(find.text('Confirm Reset All'), findsOneWidget);
           await tester.tap(find.text('Reset'));
           await tester.pump(const Duration(milliseconds: 300));
 
-          expect(find.text('Lỗi lưu trữ khi reset tất cả'), findsOneWidget);
+          expect(find.text('Storage error while resetting all'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
@@ -733,11 +734,11 @@ void main() {
           await tester.tap(deleteBtn);
           await tester.pumpAndSettle();
 
-          expect(find.text('Xác nhận xóa tất cả'), findsOneWidget);
-          await tester.tap(find.text('Xóa'));
+          expect(find.text('Confirm Delete All'), findsOneWidget);
+          await tester.tap(find.text('Delete'));
           await tester.pump(const Duration(milliseconds: 300));
 
-          expect(find.text('Lỗi lưu trữ khi xóa tất cả'), findsOneWidget);
+          expect(find.text('Storage error while deleting all'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
