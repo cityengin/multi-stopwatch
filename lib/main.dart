@@ -17,11 +17,7 @@ void main() {
 /// Quản lý vòng đời của [StopwatchManager] và [StreamTracker] duy nhất:
 /// khởi tạo trong [State.initState] và giải phóng trong [State.dispose].
 class MultiStopwatchApp extends StatefulWidget {
-  const MultiStopwatchApp({
-    super.key,
-    this.repository,
-    this.tracker,
-  });
+  const MultiStopwatchApp({super.key, this.repository, this.tracker});
 
   /// [TaskRepository] truyền vào để phục vụ kiểm thử hoặc ghi đè nơi lưu trữ.
   final TaskRepository? repository;
@@ -87,16 +83,12 @@ class _MultiStopwatchAppState extends State<MultiStopwatchApp> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Scaffold(
-              body: Center(
-                child: Text('Lỗi tải dữ liệu: ${snapshot.error}'),
-              ),
+              body: Center(child: Text('Lỗi tải dữ liệu: ${snapshot.error}')),
             );
           }
           if (!snapshot.hasData) {
             return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
+              body: Center(child: CircularProgressIndicator()),
             );
           }
           // Cung cấp StopwatchManager và StreamTracker xuống toàn bộ widget tree qua StopwatchScope

@@ -257,7 +257,10 @@ void main() {
         expect(find.byType(TaskCard), findsNWidgets(3));
 
         // Nhập vào ô tìm kiếm: "tiếng"
-        await tester.enterText(find.byKey(const Key('home_search_field')), 'tiếng');
+        await tester.enterText(
+          find.byKey(const Key('home_search_field')),
+          'tiếng',
+        );
         // Chưa đủ 300ms debounce -> chưa lọc
         await tester.pump(const Duration(milliseconds: 100));
         expect(find.byType(TaskCard), findsNWidgets(3));
@@ -270,11 +273,17 @@ void main() {
         expect(find.text('Chạy bộ'), findsNothing);
 
         // Nhập từ khóa không tồn tại
-        await tester.enterText(find.byKey(const Key('home_search_field')), 'Bơi lội');
+        await tester.enterText(
+          find.byKey(const Key('home_search_field')),
+          'Bơi lội',
+        );
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.byType(TaskCard), findsNothing);
         expect(find.text('Không tìm thấy đồng hồ nào'), findsOneWidget);
-        expect(find.text('Không có kết quả khớp với "Bơi lội"'), findsOneWidget);
+        expect(
+          find.text('Không có kết quả khớp với "Bơi lội"'),
+          findsOneWidget,
+        );
 
         // Bấm nút xóa tìm kiếm
         await tester.tap(find.byKey(const Key('home_search_clear_btn')));

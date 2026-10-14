@@ -138,7 +138,9 @@ class _DebugScreenState extends State<DebugScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Card(
                   elevation: 2,
-                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(120),
+                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(
+                    120,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
@@ -246,7 +248,10 @@ class _DebugScreenState extends State<DebugScreen> {
               // 2. Mẹo demo chứng minh cho thầy
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(8),

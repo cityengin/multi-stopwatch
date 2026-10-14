@@ -37,12 +37,16 @@ class StopwatchScope extends InheritedWidget {
 
   /// Lấy [StopwatchService] hoặc null nếu không tìm thấy trong context.
   static StopwatchService? maybeOf(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<StopwatchScope>()?.service;
+    return context
+        .dependOnInheritedWidgetOfExactType<StopwatchScope>()
+        ?.service;
   }
 
   /// Lấy [StreamTracker] hoặc null nếu không tìm thấy trong context.
   static StreamTracker? trackerOf(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<StopwatchScope>()?.tracker;
+    return context
+        .dependOnInheritedWidgetOfExactType<StopwatchScope>()
+        ?.tracker;
   }
 
   @override

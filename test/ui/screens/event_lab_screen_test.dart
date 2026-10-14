@@ -18,9 +18,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: EventLabScreen(runner: runner),
-        ),
+        MaterialApp(home: EventLabScreen(runner: runner)),
       );
       await tester.pump();
 
@@ -29,10 +27,7 @@ void main() {
 
       // Kiểm tra kịch bản mặc định và giải thích
       expect(find.text('scheduleMicrotask và Timer'), findsOneWidget);
-      expect(
-        find.textContaining('Mã đồng bộ chạy hết trước.'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Mã đồng bộ chạy hết trước.'), findsOneWidget);
 
       // Kiểm tra thanh chú thích thứ tự ưu tiên 3 hàng đợi
       expect(find.text('1. SYNC'), findsOneWidget);
@@ -50,9 +45,7 @@ void main() {
       'Chạy kịch bản microtaskVsTimer hiển thị thứ tự Sync -> Microtask -> Event',
       (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: EventLabScreen(runner: runner),
-          ),
+          MaterialApp(home: EventLabScreen(runner: runner)),
         );
         await tester.pump();
 
@@ -102,9 +95,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: EventLabScreen(runner: runner),
-        ),
+        MaterialApp(home: EventLabScreen(runner: runner)),
       );
       await tester.pump();
 
@@ -139,9 +130,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: EventLabScreen(runner: runner),
-        ),
+        MaterialApp(home: EventLabScreen(runner: runner)),
       );
       await tester.pump();
 
@@ -174,9 +163,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: EventLabScreen(runner: runner),
-        ),
+        MaterialApp(home: EventLabScreen(runner: runner)),
       );
       await tester.pump();
 
@@ -197,26 +184,25 @@ void main() {
       );
     });
 
-    testWidgets('Điều hướng từ HomeScreen sang EventLabScreen qua nút Lab ở AppBar', (
-      WidgetTester tester,
-    ) async {
-      final fakeService = FakeStopwatchService();
+    testWidgets(
+      'Điều hướng từ HomeScreen sang EventLabScreen qua nút Lab ở AppBar',
+      (WidgetTester tester) async {
+        final fakeService = FakeStopwatchService();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(service: fakeService),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(service: fakeService)),
+        );
+        await tester.pumpAndSettle();
 
-      // Tìm và bấm nút Lab trên AppBar của HomeScreen
-      expect(find.byKey(const Key('home_lab_btn')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('home_lab_btn')));
-      await tester.pumpAndSettle();
+        // Tìm và bấm nút Lab trên AppBar của HomeScreen
+        expect(find.byKey(const Key('home_lab_btn')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('home_lab_btn')));
+        await tester.pumpAndSettle();
 
-      // Đã mở sang màn hình EventLabScreen
-      expect(find.byType(EventLabScreen), findsOneWidget);
-      expect(find.text('Phòng Lab Event Loop'), findsOneWidget);
-    });
+        // Đã mở sang màn hình EventLabScreen
+        expect(find.byType(EventLabScreen), findsOneWidget);
+        expect(find.text('Phòng Lab Event Loop'), findsOneWidget);
+      },
+    );
   });
 }

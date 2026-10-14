@@ -64,21 +64,9 @@ class _EventLabScreenState extends State<EventLabScreen> {
 
   (Color, IconData, String) _getQueueDetails(LabQueue queue) {
     return switch (queue) {
-      LabQueue.sync => (
-        Colors.teal.shade700,
-        Icons.flash_on,
-        'SYNC',
-      ),
-      LabQueue.microtask => (
-        Colors.orange.shade800,
-        Icons.bolt,
-        'MICROTASK',
-      ),
-      LabQueue.event => (
-        Colors.purple.shade700,
-        Icons.schedule,
-        'EVENT',
-      ),
+      LabQueue.sync => (Colors.teal.shade700, Icons.flash_on, 'SYNC'),
+      LabQueue.microtask => (Colors.orange.shade800, Icons.bolt, 'MICROTASK'),
+      LabQueue.event => (Colors.purple.shade700, Icons.schedule, 'EVENT'),
     };
   }
 
@@ -264,14 +252,22 @@ class _EventLabScreenState extends State<EventLabScreen> {
                         color: Colors.teal.shade700,
                         icon: Icons.flash_on,
                       ),
-                      const Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
+                      const Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                       _buildQueueLegend(
                         label: '2. MICROTASK',
                         desc: 'scheduleMicrotask, .then',
                         color: Colors.orange.shade800,
                         icon: Icons.bolt,
                       ),
-                      const Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
+                      const Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                       _buildQueueLegend(
                         label: '3. EVENT',
                         desc: 'Timer, Future(), delayed',
@@ -387,8 +383,9 @@ class _EventLabScreenState extends State<EventLabScreen> {
                             const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final event = events[index];
-                          final (color, icon, queueName) =
-                              _getQueueDetails(event.queue);
+                          final (color, icon, queueName) = _getQueueDetails(
+                            event.queue,
+                          );
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
@@ -501,10 +498,7 @@ class _EventLabScreenState extends State<EventLabScreen> {
               ),
               Text(
                 desc,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: color.withAlpha(200),
-                ),
+                style: TextStyle(fontSize: 9, color: color.withAlpha(200)),
               ),
             ],
           ),

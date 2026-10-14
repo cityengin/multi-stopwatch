@@ -25,11 +25,7 @@ void main() {
     testWidgets('Hiển thị giao diện DebugScreen ban đầu với 0 subscription', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DebugScreen(tracker: tracker),
-        ),
-      );
+      await tester.pumpWidget(MaterialApp(home: DebugScreen(tracker: tracker)));
       await tester.pump();
 
       expect(find.text('Bộ theo dõi luồng (Debug)'), findsOneWidget);
@@ -48,9 +44,7 @@ void main() {
       'Cập nhật activeCount và danh sách log khi có sự kiện listen/cancel',
       (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: DebugScreen(tracker: tracker),
-          ),
+          MaterialApp(home: DebugScreen(tracker: tracker)),
         );
         await tester.pump();
 
@@ -109,11 +103,7 @@ void main() {
     testWidgets('Lọc danh sách log bằng các FilterChip', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DebugScreen(tracker: tracker),
-        ),
-      );
+      await tester.pumpWidget(MaterialApp(home: DebugScreen(tracker: tracker)));
       await tester.pump();
 
       final controller = StreamController<int>.broadcast();

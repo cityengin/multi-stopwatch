@@ -61,12 +61,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchSubscription = _searchController.stream
         .debounced(const Duration(milliseconds: 300))
         .listen((query) {
-      if (mounted) {
-        setState(() {
-          _searchQuery = query;
+          if (mounted) {
+            setState(() {
+              _searchQuery = query;
+            });
+          }
         });
-      }
-    });
   }
 
   @override
@@ -411,19 +411,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToDebug() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const DebugScreen(),
-      ),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (context) => const DebugScreen()));
   }
 
   void _navigateToLab() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const EventLabScreen(),
-      ),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (context) => const EventLabScreen()));
   }
 
   @override
@@ -541,8 +535,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 final filteredTasks = query.isEmpty
                     ? tasks
                     : tasks
-                        .where((t) => t.name.toLowerCase().contains(query))
-                        .toList();
+                          .where((t) => t.name.toLowerCase().contains(query))
+                          .toList();
 
                 if (filteredTasks.isEmpty) {
                   return Center(
@@ -577,8 +571,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     if (isWide) {
                       // Màn rộng: Hiển thị dạng lưới (GridView)
-                      final crossAxisCount =
-                          constraints.maxWidth >= 960 ? 3 : 2;
+                      final crossAxisCount = constraints.maxWidth >= 960
+                          ? 3
+                          : 2;
                       return GridView.builder(
                         key: const Key('tasks_grid_view'),
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),

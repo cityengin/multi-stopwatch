@@ -70,36 +70,40 @@ void main() {
       expect(find.text('01:05.78'), findsOneWidget);
     });
 
-    testWidgets('Lấy service từ StopwatchScope thành công khi không truyền qua constructor', (
-      WidgetTester tester,
-    ) async {
-      final task = await fakeService.createTask(
-        name: 'Đồng hồ Scope',
-        colorValue: Colors.orange.toARGB32(),
-      );
+    testWidgets(
+      'Lấy service từ StopwatchScope thành công khi không truyền qua constructor',
+      (WidgetTester tester) async {
+        final task = await fakeService.createTask(
+          name: 'Đồng hồ Scope',
+          colorValue: Colors.orange.toARGB32(),
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: StopwatchScope(
-            service: fakeService,
-            child: Scaffold(
-              body: ElapsedText(
-                taskId: task.id,
-                initialElapsed: const Duration(seconds: 10),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StopwatchScope(
+              service: fakeService,
+              child: Scaffold(
+                body: ElapsedText(
+                  taskId: task.id,
+                  initialElapsed: const Duration(seconds: 10),
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      expect(find.text('00:10.00'), findsOneWidget);
+        expect(find.text('00:10.00'), findsOneWidget);
 
-      fakeService.emitElapsed(task.id, const Duration(seconds: 15, milliseconds: 500));
-      await tester.pump();
+        fakeService.emitElapsed(
+          task.id,
+          const Duration(seconds: 15, milliseconds: 500),
+        );
+        await tester.pump();
 
-      expect(find.text('00:15.50'), findsOneWidget);
-    });
+        expect(find.text('00:15.50'), findsOneWidget);
+      },
+    );
 
     testWidgets('Hiển thị lỗi --:--.-- khi stream gặp exception', (
       WidgetTester tester,
@@ -167,14 +171,20 @@ void main() {
       expect(find.text('00:30.00'), findsOneWidget);
 
       // Cập nhật chỉ đồng hồ 1
-      fakeService.emitElapsed(task1.id, const Duration(seconds: 1, milliseconds: 500));
+      fakeService.emitElapsed(
+        task1.id,
+        const Duration(seconds: 1, milliseconds: 500),
+      );
       await tester.pump();
 
       expect(find.text('00:01.50'), findsOneWidget);
       expect(find.text('00:30.00'), findsOneWidget);
 
       // Cập nhật đồng hồ 2
-      fakeService.emitElapsed(task2.id, const Duration(seconds: 35, milliseconds: 200));
+      fakeService.emitElapsed(
+        task2.id,
+        const Duration(seconds: 35, milliseconds: 200),
+      );
       await tester.pump();
 
       expect(find.text('00:01.50'), findsOneWidget);
