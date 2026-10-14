@@ -19,6 +19,7 @@ class TaskCard extends StatelessWidget {
     required this.onChangeColor,
     required this.onDelete,
     this.onTap,
+    this.margin,
   });
 
   final TaskSnapshot task;
@@ -30,6 +31,7 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onChangeColor;
   final VoidCallback onDelete;
   final VoidCallback? onTap;
+  final EdgeInsetsGeometry? margin;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +46,7 @@ class TaskCard extends StatelessWidget {
 
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: taskColor.withAlpha(120), width: 1.5),

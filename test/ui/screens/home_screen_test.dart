@@ -67,7 +67,7 @@ void main() {
       expect(find.text('Thêm đồng hồ mới'), findsOneWidget);
 
       // Nhập tên
-      await tester.enterText(find.byType(TextField), 'Đọc sách');
+      await tester.enterText(find.byType(TextField).last, 'Đọc sách');
       await tester.pump();
 
       // Bấm nút Tạo
@@ -145,7 +145,7 @@ void main() {
       expect(find.text('Đổi tên đồng hồ'), findsOneWidget);
 
       // Nhập tên mới
-      await tester.enterText(find.byType(TextField), 'Tên mới đã đổi');
+      await tester.enterText(find.byType(TextField).last, 'Tên mới đã đổi');
       await tester.pump();
 
       // Bấm Lưu
@@ -231,5 +231,93 @@ void main() {
       expect(find.byType(TaskDetailScreen), findsOneWidget);
       expect(find.text('Danh sách vòng (0)'), findsOneWidget);
     });
+
+    testWidgets(
+      'Tìm kiếm đồng hồ dùng debounce của core: lọc chính xác và xóa tìm kiếm',
+      (WidgetTester tester) async {
+        await fakeService.createTask(
+          name: 'Học Flutter',
+          colorValue: Colors.blue.toARGB32(),
+        );
+        await fakeService.createTask(
+          name: 'Học tiếng Anh',
+          colorValue: Colors.green.toARGB32(),
+        );
+        await fakeService.createTask(
+          name: 'Chạy bộ',
+          colorValue: Colors.orange.toARGB32(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(service: fakeService)),
+        );
+        await tester.pump();
+
+        // Ban đầu thấy cả 3 đồng hồ
+        expect(find.byType(TaskCard), findsNWidgets(3));
+
+        // Nhập vào ô tìm kiếm: "tiếng"
+        await tester.enterText(find.byKey(const Key('home_search_field')), 'tiếng');
+        // Chưa đủ 300ms debounce -> chưa lọc
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.byType(TaskCard), findsNWidgets(3));
+
+        // Sau 300ms debounce -> đã lọc
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.byType(TaskCard), findsOneWidget);
+        expect(find.text('Học tiếng Anh'), findsOneWidget);
+        expect(find.text('Học Flutter'), findsNothing);
+        expect(find.text('Chạy bộ'), findsNothing);
+
+        // Nhập từ khóa không tồn tại
+        await tester.enterText(find.byKey(const Key('home_search_field')), 'Bơi lội');
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.byType(TaskCard), findsNothing);
+        expect(find.text('Không tìm thấy đồng hồ nào'), findsOneWidget);
+        expect(find.text('Không có kết quả khớp với "Bơi lội"'), findsOneWidget);
+
+        // Bấm nút xóa tìm kiếm
+        await tester.tap(find.byKey(const Key('home_search_clear_btn')));
+        await tester.pumpAndSettle();
+
+        // Danh sách trở lại 3 đồng hồ
+        expect(find.byType(TaskCard), findsNWidgets(3));
+      },
+    );
+
+    testWidgets(
+      'Layout responsive qua LayoutBuilder: màn hẹp dạng ListView, màn rộng dạng GridView',
+      (WidgetTester tester) async {
+        await fakeService.createTask(
+          name: 'Task 1',
+          colorValue: Colors.blue.toARGB32(),
+        );
+        await fakeService.createTask(
+          name: 'Task 2',
+          colorValue: Colors.green.toARGB32(),
+        );
+
+        // 1. Kiểm tra màn hình hẹp (< 600px): hiển thị ListView
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(service: fakeService)),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('tasks_list_view')), findsOneWidget);
+        expect(find.byKey(const Key('tasks_grid_view')), findsNothing);
+
+        // 2. Đổi kích thước sang màn hình rộng (>= 600px): hiển thị GridView
+        tester.view.physicalSize = const Size(800, 600);
+        await tester.pump();
+
+        expect(find.byKey(const Key('tasks_grid_view')), findsOneWidget);
+        expect(find.byKey(const Key('tasks_list_view')), findsNothing);
+      },
+    );
   });
 }

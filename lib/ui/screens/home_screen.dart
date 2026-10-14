@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/services/stopwatch_service.dart';
+import '../../core/transformers/rate_limit.dart';
 import '../scope/stopwatch_scope.dart';
 import '../widgets/task_card.dart';
 import 'debug_screen.dart';
@@ -26,6 +29,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Stream<List<TaskSnapshot>>? _tasksStream;
   StopwatchService? _cachedService;
 
+  final TextEditingController _searchFieldController = TextEditingController();
+  final StreamController<String> _searchController =
+      StreamController<String>.broadcast();
+  StreamSubscription<String>? _searchSubscription;
+  String _searchQuery = '';
+
   StopwatchService get _service => _cachedService!;
 
   static const List<Color> _presetColors = [
@@ -47,6 +56,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _cachedService = widget.service;
       _tasksStream = _cachedService!.tasksStream;
     }
+
+    // Lắng nghe text tìm kiếm qua debounce 300ms của core
+    _searchSubscription = _searchController.stream
+        .debounced(const Duration(milliseconds: 300))
+        .listen((query) {
+      if (mounted) {
+        setState(() {
+          _searchQuery = query;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchSubscription?.cancel();
+    _searchController.close();
+    _searchFieldController.dispose();
+    super.dispose();
   }
 
   @override
@@ -419,73 +447,194 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<TaskSnapshot>>(
-        stream: _tasksStream,
-        initialData: _service.currentTasks,
-        builder: (context, snapshot) {
-          // Xử lý lỗi stream theo quy tắc 9
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                  const SizedBox(height: 12),
-                  Text('Đã xảy ra lỗi: ${snapshot.error}'),
-                ],
+      body: Column(
+        children: [
+          // 1. Ô tìm kiếm đồng hồ (sử dụng debounce 300ms của core)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              key: const Key('home_search_field'),
+              controller: _searchFieldController,
+              onChanged: (text) => _searchController.add(text),
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm đồng hồ theo tên...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchFieldController.text.isNotEmpty
+                    ? IconButton(
+                        key: const Key('home_search_clear_btn'),
+                        icon: const Icon(Icons.clear),
+                        tooltip: 'Xóa tìm kiếm',
+                        onPressed: () {
+                          _searchFieldController.clear();
+                          _searchController.add('');
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
-            );
-          }
+            ),
+          ),
 
-          final tasks = snapshot.data ?? const <TaskSnapshot>[];
+          // 2. Danh sách đồng hồ responsive qua LayoutBuilder
+          Expanded(
+            child: StreamBuilder<List<TaskSnapshot>>(
+              stream: _tasksStream,
+              initialData: _service.currentTasks,
+              builder: (context, snapshot) {
+                // Xử lý lỗi stream theo quy tắc 9
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Đã xảy ra lỗi: ${snapshot.error}'),
+                      ],
+                    ),
+                  );
+                }
 
-          if (tasks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    size: 72,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Chưa có đồng hồ nào',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: Colors.grey.shade500),
-                  ),
-                ],
-              ),
-            );
-          }
+                final tasks = snapshot.data ?? const <TaskSnapshot>[];
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: tasks.length,
-            itemBuilder: (context, index) {
-              final task = tasks[index];
-              return TaskCard(
-                key: ValueKey(task.id),
-                task: task,
-                service: _service,
-                onTap: () => _navigateToDetail(task),
-                onStart: () => _handleStart(task.id),
-                onPause: () => _handlePause(task.id),
-                onResume: () => _handleResume(task.id),
-                onRename: () => _showRenameDialog(task),
-                onChangeColor: () => _showChangeColorDialog(task),
-                onDelete: () => _confirmDelete(task),
-              );
-            },
-          );
-        },
+                if (tasks.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 72,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Chưa có đồng hồ nào',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Bấm nút + bên dưới để tạo đồng hồ đầu tiên',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final query = _searchQuery.trim().toLowerCase();
+                final filteredTasks = query.isEmpty
+                    ? tasks
+                    : tasks
+                        .where((t) => t.name.toLowerCase().contains(query))
+                        .toList();
+
+                if (filteredTasks.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Không tìm thấy đồng hồ nào',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Không có kết quả khớp với "$_searchQuery"',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 600;
+
+                    if (isWide) {
+                      // Màn rộng: Hiển thị dạng lưới (GridView)
+                      final crossAxisCount =
+                          constraints.maxWidth >= 960 ? 3 : 2;
+                      return GridView.builder(
+                        key: const Key('tasks_grid_view'),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisExtent: 210,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: filteredTasks.length,
+                        itemBuilder: (context, index) {
+                          final task = filteredTasks[index];
+                          return TaskCard(
+                            key: ValueKey(task.id),
+                            task: task,
+                            service: _service,
+                            margin: EdgeInsets.zero,
+                            onTap: () => _navigateToDetail(task),
+                            onStart: () => _handleStart(task.id),
+                            onPause: () => _handlePause(task.id),
+                            onResume: () => _handleResume(task.id),
+                            onRename: () => _showRenameDialog(task),
+                            onChangeColor: () => _showChangeColorDialog(task),
+                            onDelete: () => _confirmDelete(task),
+                          );
+                        },
+                      );
+                    } else {
+                      // Màn hẹp: Hiển thị danh sách dọc (ListView)
+                      return ListView.builder(
+                        key: const Key('tasks_list_view'),
+                        padding: const EdgeInsets.only(top: 4, bottom: 80),
+                        itemCount: filteredTasks.length,
+                        itemBuilder: (context, index) {
+                          final task = filteredTasks[index];
+                          return TaskCard(
+                            key: ValueKey(task.id),
+                            task: task,
+                            service: _service,
+                            onTap: () => _navigateToDetail(task),
+                            onStart: () => _handleStart(task.id),
+                            onPause: () => _handlePause(task.id),
+                            onResume: () => _handleResume(task.id),
+                            onRename: () => _showRenameDialog(task),
+                            onChangeColor: () => _showChangeColorDialog(task),
+                            onDelete: () => _confirmDelete(task),
+                          );
+                        },
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         key: const Key('add_task_fab'),
