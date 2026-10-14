@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../core/models/task_snapshot.dart';
-import '../../core/models/task_status.dart';
+import '../../core/services/stopwatch_service.dart';
+import 'elapsed_text.dart';
 
 /// Thẻ hiển thị một đồng hồ trong danh sách.
 ///
-/// Chưa hiển thị thời gian chạy theo đúng phạm vi của Bước 2.
 /// Tách thành widget riêng để cô lập layout và tương tác của từng item.
+/// Thời gian chạy được giao cho [ElapsedText] render độc lập để tránh rebuild thẻ.
 class TaskCard extends StatelessWidget {
   const TaskCard({
     super.key,
     required this.task,
+    this.service,
     required this.onStart,
     required this.onPause,
     required this.onResume,
@@ -20,6 +21,7 @@ class TaskCard extends StatelessWidget {
   });
 
   final TaskSnapshot task;
+  final StopwatchService? service;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onResume;
@@ -140,6 +142,31 @@ class TaskCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            // Hiển thị thời gian chạy mm:ss.cs qua ElapsedText
+            Row(
+              children: [
+                Icon(
+                  Icons.timer_outlined,
+                  size: 20,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 8),
+                ElapsedText(
+                  taskId: task.id,
+                  initialElapsed: task.elapsed,
+                  service: service,
+                  throttleDuration: const Duration(milliseconds: 33),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1.2,
+                    color: task.status == TaskStatus.running ? taskColor : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             const Divider(height: 16),
             // Hàng nút điều khiển start / pause nhanh
             Row(

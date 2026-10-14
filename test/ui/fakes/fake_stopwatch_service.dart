@@ -10,7 +10,7 @@ class FakeStopwatchService implements StopwatchService {
 
   final List<TaskSnapshot> _tasks;
   final StreamController<List<TaskSnapshot>> _tasksController =
-      StreamController<List<TaskSnapshot>>.broadcast();
+      StreamController<List<TaskSnapshot>>.broadcast(sync: true);
 
   final Map<String, StreamController<Duration>> _elapsedControllers = {};
 
@@ -30,13 +30,27 @@ class FakeStopwatchService implements StopwatchService {
     }
     final controller = _elapsedControllers.putIfAbsent(
       taskId,
-      () => StreamController<Duration>.broadcast(),
+      () => StreamController<Duration>.broadcast(sync: true),
     );
     return controller.stream;
   }
 
   void _notifyTasks() {
     _tasksController.add(List.unmodifiable(_tasks));
+  }
+
+  /// Phát giá trị elapsed vào stream của đồng hồ [taskId] để phục vụ test UI.
+  void emitElapsed(String taskId, Duration elapsed) {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      _tasks[index] = _tasks[index].copyWith(elapsed: elapsed);
+    }
+    _elapsedControllers[taskId]?.add(elapsed);
+  }
+
+  /// Phát lỗi vào elapsedStream để kiểm thử phản ứng lỗi của UI.
+  void emitElapsedError(String taskId, Object error) {
+    _elapsedControllers[taskId]?.addError(error);
   }
 
   @override

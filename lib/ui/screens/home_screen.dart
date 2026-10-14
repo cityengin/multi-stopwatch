@@ -424,6 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return TaskCard(
                 key: ValueKey(task.id),
                 task: task,
+                service: _service,
                 onStart: () => _handleStart(task.id),
                 onPause: () => _handlePause(task.id),
                 onResume: () => _handleResume(task.id),
