@@ -1,6 +1,6 @@
 # API Contract: lib/core cho người làm UI
 
-Tài liệu này mô tả phần business logic (`lib/core/`) mà UI dùng: cách khởi tạo, các stream, các lệnh, lỗi và lớp hỗ trợ màn Debug. UI chỉ cần phụ thuộc interface `StopwatchService`; mọi chi tiết bên trong có thể đổi mà không ảnh hưởng UI.
+Tài liệu này mô tả phần business logic (`lib/core/`) mà UI dùng: cách khởi tạo, các stream, các lệnh, lỗi và mấy lớp hỗ trợ màn Debug/Lab. UI chỉ cần phụ thuộc interface `StopwatchService`; mọi chi tiết bên trong có thể đổi mà không ảnh hưởng UI.
 
 Cần thêm hoặc đổi API thì báo người làm core, không sửa trực tiếp trong `lib/core/`.
 
@@ -15,6 +15,7 @@ Cần thêm hoặc đổi API thì báo người làm core, không sửa trực 
 | Tự thử lại khi lỗi | `package:multi_stopwatch/core/storage/retrying_task_repository.dart` |
 | Throttle / debounce | `package:multi_stopwatch/core/transformers/rate_limit.dart` |
 | Màn Debug | `package:multi_stopwatch/core/debug/stream_tracker.dart` |
+| Màn Lab | `package:multi_stopwatch/core/lab/event_lab_runner.dart` và `package:multi_stopwatch/core/lab/lab_event.dart` |
 
 `stopwatch_service.dart` đã export sẵn models và các lỗi, nên màn hình thường chỉ cần import file này.
 
@@ -318,7 +319,28 @@ Tên `source` xuất hiện trong log:
 
 Sau `service.dispose()`, `activeCount` về 0 và log kết thúc bằng `dispose TickSource` rồi `dispose StopwatchManager`. Ngoại lệ: listener đang pause chỉ nhận done (và được trừ khỏi số đếm) khi resume.
 
-## 9. Lớp cấp thấp (UI thường không cần)
+## 9. Màn Lab: EventLabRunner
+
+Chạy thật các kịch bản event loop và trả về thứ tự thực thi đo được.
+
+```dart
+final runner = EventLabRunner();
+final List<LabEvent> events = await runner.run(LabScenario.asyncGap);
+final all = await runner.runAll(); // Map<LabScenario, List<LabEvent>>, theo thứ tự khai báo
+```
+
+| Kịch bản (`LabScenario`) | Minh họa |
+|---|---|
+| `microtaskVsTimer` | `scheduleMicrotask` chạy trước `Timer.run` |
+| `futureConstructors` | `Future()`, `Future.microtask`, `Future.value().then`, `Future.sync` |
+| `delayedZero` | `Future.delayed(Duration.zero)` không chạy ngay |
+| `awaitCompletedFuture` | Hàm async chạy đồng bộ tới `await`; phần sau `await` một Future đã xong là microtask |
+| `asyncGap` | Code khác chen vào và đổi trạng thái trong lúc `await` |
+| `nestedMicrotasks` | Microtask sinh thêm microtask vẫn chạy trước Timer |
+
+Mỗi kịch bản có `title` và `explanation` (tiếng Anh, khớp với giao diện) để hiển thị. Mỗi `LabEvent` gồm `sequence` (thứ tự, từ 1), `label`, `queue` (`LabQueue.sync`, `microtask`, `event`: đo bằng Zone lúc chạy, không ghi tay) và `at` (thời gian tính từ lúc kịch bản bắt đầu). Kết quả không sửa được; chạy nhiều kịch bản cùng lúc không lẫn nhau.
+
+## 10. Lớp cấp thấp (UI thường không cần)
 
 | Lớp | Vai trò |
 |---|---|
@@ -328,7 +350,7 @@ Sau `service.dispose()`, `activeCount` về 0 và log kết thúc bằng `dispos
 | `ElapsedTracker` | Tính elapsed theo mốc thời gian, bù thời gian máy ngủ, khôi phục sau restart |
 | `TimeSource`, `SystemTimeSource` | Nguồn thời gian; truyền `timeSource:` vào `open` để điều khiển thời gian trong widget test |
 
-## 10. Hạn chế đã biết
+## 11. Hạn chế đã biết
 
 - Người dùng chỉnh giờ hệ thống **tiến** khi đồng hồ đang chạy: phần chênh bị cộng vào elapsed (core không phân biệt được với lúc máy ngủ).
 - Người dùng chỉnh giờ hệ thống **lùi** khi đồng hồ đang chạy: elapsed trong phiên vẫn đúng, nhưng mốc đã hiệu chỉnh chỉ được lưu ở lệnh kế tiếp của đồng hồ đó; nếu app bị tắt trước lệnh đó thì lần mở sau tính thiếu.
