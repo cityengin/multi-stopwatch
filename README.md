@@ -12,6 +12,7 @@ App Flutter đồng hồ bấm giờ đa tác vụ: nhiều đồng hồ chạy 
 - **Throttle và debounce tự viết** bằng `StreamTransformer` (không dùng rxdart): xử lý đúng cancel, pause/resume, done, lỗi; hỗ trợ cả stream single-subscription lẫn broadcast.
 - **Repository:** `LocalTaskRepository` (shared_preferences + JSON có version), `InMemoryTaskRepository` (giả lập API bằng `Future.delayed`, giả lập lỗi), `RetryingTaskRepository` (thử lại với thời gian chờ tăng dần). Manager nhận repository qua dependency injection.
 - **Hủy luồng an toàn + StreamTracker:** `dispose()` gọi nhiều lần không lỗi, hủy mọi subscription và Timer, đóng mọi controller, không phát sự kiện sau khi đóng. `StreamTracker` đếm subscription đang hoạt động và phát log listen/cancel/done/dispose cho màn Debug.
+- **Event Loop Lab:** `EventLabRunner` chạy thật 6 kịch bản (scheduleMicrotask, Future, Timer, await, `Future.delayed(Duration.zero)`, async gap) và trả về thứ tự thực thi đo được bằng Zone, kèm giải thích ngắn cho từng kịch bản.
 
 Hợp đồng API chi tiết cho người làm UI: [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
 
@@ -26,7 +27,8 @@ lib/
     ├── services/        StopwatchService (hợp đồng), StopwatchManager, exception
     ├── storage/         TaskRepository, Local / InMemory / Retrying
     ├── transformers/    throttle, debounce
-    └── debug/           StreamTracker
+    ├── debug/           StreamTracker
+    └── lab/             EventLabRunner, LabEvent
 test/
 ├── widget_test.dart     test của app mẫu
 └── core/                test cho từng thư mục của lib/core (support/ là phần dùng chung)
@@ -114,7 +116,7 @@ Kết quả đúng kết thúc bằng dòng `All tests passed!`. Xem thêm ở m
 | `flutter test --reporter expanded` | In tên từng test khi chạy |
 | `flutter test --coverage` | Tạo báo cáo độ phủ ở `coverage/lcov.info` |
 
-Phần lớn test dùng `fake_async` (thời gian ảo), nên kịch bản "chạy 1 giờ" chỉ mất vài giây. Riêng nhóm test "đồng hồ thật" chạy trên event loop thật.
+Phần lớn test dùng `fake_async` (thời gian ảo), nên kịch bản "chạy 1 giờ" chỉ mất vài giây. Test của Event Loop Lab và một test "đồng hồ thật" chạy trên event loop thật.
 
 Các test chứng minh yêu cầu chính:
 
@@ -125,6 +127,7 @@ Các test chứng minh yêu cầu chính:
 | Throttle/debounce đúng thời gian | `test/core/transformers/rate_limit_test.dart` |
 | Khôi phục đúng thời gian sau restart giả lập | `test/core/services/stopwatch_manager_test.dart` (nhóm "khởi động lại"), `test/core/storage/local_task_repository_test.dart` |
 | Không trôi thời gian khi chạy lâu | `test/core/ticker/elapsed_tracker_test.dart`, `test/core/services/stopwatch_manager_test.dart` (nhóm "không trôi khi chạy lâu") |
+| Thứ tự event loop khớp lý thuyết | `test/core/lab/event_lab_runner_test.dart` |
 
 ### Đọc kết quả test hủy luồng
 
