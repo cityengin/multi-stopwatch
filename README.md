@@ -26,7 +26,7 @@
   - Quản lý trọn vẹn vòng đời: Pause/resume lan ngược về nguồn, dọn dẹp Timer lập tức khi cancel, xả sạch sự kiện pending trước khi done.
 - **Tầng lưu trữ đa dạng & Khả năng chịu lỗi (`storage/`):**
   - `LocalTaskRepository`: Lưu dữ liệu vào `SharedPreferences` dạng JSON có version (`version: 1`).
-  - `InMemoryTaskRepository`: Giả lập API trong bộ nhớ với độ trễ mạng (`latency`) và tỷ lệ lỗi ngẫu nhiên (`failureRate`).
+  - `InMemoryTaskRepository`: Giả lập lưu trữ trong bộ nhớ với độ trễ mạng (`latency`) và tỷ lệ lỗi ngẫu nhiên (`failureRate`).
   - `RetryingTaskRepository`: Áp dụng Decorator Pattern, tự động thử lại khi gặp `StorageException` với thời gian chờ tăng dần (Exponential backoff).
 - **Bộ giám sát Stream & Chống rò rỉ (`StreamTracker`):**
   - Bọc các stream để đếm số lượng subscription đang hoạt động (`activeCount`, `activeBySource`) theo thời gian thực.
@@ -58,7 +58,7 @@ lib/
 ├── core/                   Business Logic & Reactive Streams (thuần Dart)
 │   ├── models/             StopwatchTask, TaskSnapshot, Lap, TaskStatus (immutable, JSON)
 │   ├── ticker/             TickSource (broadcast lazy), ElapsedTracker, TimeSource
-│   ├── services/           StopwatchService (hợp đồng API), StopwatchManager, exceptions
+│   ├── services/           StopwatchService (interface điều phối), StopwatchManager, exceptions
 │   ├── storage/            TaskRepository, Local / InMemory / Retrying
 │   ├── transformers/       ThrottleTransformer (trailing: true), DebounceTransformer
 │   ├── debug/              StreamTracker (giám sát subscription, log vòng đời)
@@ -85,8 +85,6 @@ test/
     ├── widgets/            ElapsedText & TaskCard tests
     ├── app_smoke_test.dart Khởi động ứng dụng end-to-end
     └── subscription_lifecycle_test.dart  Đối soát vòng đời hủy subscription (Zero Leak)
-docs/
-└── API_CONTRACT.md         Hợp đồng API chi tiết giữa Core và UI
 ```
 
 ---
@@ -112,11 +110,11 @@ flowchart LR
 
 ## Phân công thành viên & Đóng góp
 
-Dự án được xây dựng bởi nhóm 2 sinh viên với phân định ranh giới module rõ ràng thông qua hợp đồng API độc lập (`StopwatchService`):
+Dự án được xây dựng bởi nhóm 2 sinh viên với phân định ranh giới module rõ ràng qua interface điều phối (`StopwatchService`):
 
 | Thành viên | Vai trò | Nội dung đảm nhiệm chính | Đóng góp |
 |:---|:---|:---|:---:|
-| **Sinh viên 1** | **Business Logic & Developer API** | • Thiết kế kiến trúc Core Reactive thuần Dart (không dùng `rxdart`).<br>• Triển khai `TickSource` broadcast lazy và `ElapsedTracker` chống trôi giờ.<br>• Tự viết `ThrottleTransformer` (trailing) và `DebounceTransformer`.<br>• Xây dựng tầng lưu trữ chịu lỗi, Retrying Decorator và cơ chế tự động Rollback.<br>• Triển khai bộ đếm `StreamTracker` chống rò rỉ và Dart Zone `EventLabRunner`.<br>• Soạn thảo hợp đồng `API_CONTRACT.md` & thiết kế Slide thuyết trình. | **55%** |
+| **Sinh viên 1** | **Business Logic & Core Architecture** | • Thiết kế kiến trúc Core Reactive thuần Dart (không dùng `rxdart`).<br>• Triển khai `TickSource` broadcast lazy và `ElapsedTracker` chống trôi giờ.<br>• Tự viết `ThrottleTransformer` (trailing) và `DebounceTransformer`.<br>• Xây dựng tầng lưu trữ chịu lỗi, Retrying Decorator và cơ chế tự động Rollback.<br>• Triển khai bộ đếm `StreamTracker` chống rò rỉ và Dart Zone `EventLabRunner`.<br>• Xây dựng toàn bộ Unit / Integration test cho Core & xây dựng Slide báo cáo. | **55%** |
 | **Sinh viên 2** | **UI & State Management** | • Thiết kế kiến trúc State bằng `StopwatchScope` (`InheritedWidget`).<br>• Tối ưu hiệu năng dựng hình 60fps với component `ElapsedText`.<br>• Xây dựng `HomeScreen` (Responsive, Batch Operations toolbar, tìm kiếm Debounce).<br>• Xây dựng `TaskDetailScreen` (bấm Lap, trực quan hóa chênh lệch Lap Delta).<br>• Xây dựng các màn hình công cụ: `DebugScreen`, `EventLabScreen`.<br>• Xây dựng toàn bộ bộ Widget Tests & đối soát vòng đời hủy subscription. | **45%** |
 
 ---
@@ -129,7 +127,7 @@ Dự án được xây dựng bởi nhóm 2 sinh viên với phân định ranh 
 - **Android:** Android SDK, JDK 17 trở lên
 - **Thư viện sử dụng:** `meta`, `shared_preferences`, `cupertino_icons`
 - **Thư viện dev:** `flutter_test`, `flutter_lints`, `fake_async`
-- **Cấu hình môi trường:** Dự án **không dùng API key**, **không cần `.env`**, **không dùng Firebase**; dữ liệu hoàn toàn cục bộ hoặc giả lập trong bộ nhớ.
+- **Cấu hình môi trường:** Dự án **chạy hoàn toàn offline**, **không cần `.env`**, **không dùng Firebase**; dữ liệu hoàn toàn cục bộ hoặc giả lập trong bộ nhớ.
 
 ### Cài đặt thư viện
 ```bash
@@ -181,10 +179,3 @@ flutter analyze
 | **Rate Limit Thuần Dart** | `test/core/transformers/rate_limit_test.dart` | Kiểm tra thời gian chính xác của Throttle (kèm cờ trailing) và Debounce. |
 | **Thứ tự Event Loop khớp lý thuyết** | `test/core/lab/event_lab_runner_test.dart` | Chạy thực nghiệm 6 kịch bản bằng Dart Zone, đối chiếu thứ tự Call Stack $\to$ Microtask $\to$ Event Queue. |
 | **Kiểm thử Widget & Rebuild** | `test/ui/screens/home_screen_test.dart`<br>`test/ui/widgets/elapsed_text_test.dart` | Xác nhận các thao tác UI, thanh Toolbar hàng loạt, tìm kiếm debounce và tính độc lập khi vẽ lại của `ElapsedText`. |
-
----
-
-## Tài liệu đính kèm & Bài báo cáo
-
-- **Hợp đồng API chi tiết:** [docs/API_CONTRACT.md](docs/API_CONTRACT.md) — Mô tả chi tiết toàn bộ interface, models, exceptions và cách sử dụng cho lập trình viên.
-- **File trình chiếu báo cáo (PowerPoint):** [Bao_Cao_Multi_Stopwatch.pptx](Bao_Cao_Multi_Stopwatch.pptx) — Bộ slide 14 trang chuẩn 16:9, thiết kế tối giản nền trắng, font chữ Times New Roman, tích hợp đầy đủ các đoạn code quan trọng và lời thoại thuyết trình (Speaker Notes) 15 phút.

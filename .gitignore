@@ -46,3 +46,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Presentation & generator scripts
+*.pptx
+generate_presentation.py
+
+# Documentation & API contract
+docs/
