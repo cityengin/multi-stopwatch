@@ -496,8 +496,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToDebug() {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (context) => const DebugScreen()));
+    final tracker = StopwatchScope.trackerOf(context);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => DebugScreen(tracker: tracker)),
+    );
   }
 
   void _navigateToLab() {
