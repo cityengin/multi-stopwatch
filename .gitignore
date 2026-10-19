@@ -50,6 +50,12 @@ app.*.map.json
 # Presentation & generator scripts
 *.pptx
 generate_presentation.py
+create_word_script.py
+*.docx
+slide_preview.pdf
+
+# Local simulated images
+images/
 
 # Documentation & API contract
 docs/

@@ -50,6 +50,27 @@
 
 ---
 
+## Ảnh mô phỏng giao diện
+
+Dưới đây là các hình ảnh mô phỏng giao diện và tính năng thực tế của ứng dụng Multi-Stopwatch:
+
+| Màn hình chính (`HomeScreen`) | Màn hình chi tiết & Vòng chạy (`TaskDetailScreen`) |
+|:---:|:---:|
+| ![Màn hình chính](images/ui_home_list.png) | ![Màn hình chi tiết](images/ui_detail_laps.png) |
+| *Danh sách đồng hồ chạy song song, thanh công cụ hàng loạt & tìm kiếm debounce* | *Đồng hồ số lớn, các nút điều khiển và bảng thống kê chặng (Lap Delta)* |
+
+| Xác nhận thao tác hàng loạt | Phòng thí nghiệm Event Loop (`EventLabScreen`) |
+|:---:|:---:|
+| ![Xác nhận xóa tất cả](images/ui_confirm_delete_all.png) | ![Event Loop Lab](images/ui_event_lab.png) |
+| *Hộp thoại cảnh báo và xác nhận an toàn trước khi Reset/Xóa toàn bộ* | *Thực nghiệm trực quan thứ tự thực thi: Call Stack (Sync) $\to$ Microtask $\to$ Event Queue* |
+
+| Màn hình Debug khi đang chạy | Màn hình Debug sau khi thoát (Zero Leak) |
+|:---:|:---:|
+| ![Debug khi đang chạy](images/ui_debug_running.png) | ![Debug sau khi thoát](images/ui_debug_after_exit.png) |
+| *Theo dõi số lượng subscription đang hoạt động theo thời gian thực* | *Minh chứng hủy luồng an toàn: số subscription active giảm chính xác về 0* |
+
+---
+
 ## Kiến trúc thư mục
 
 ```text
@@ -179,3 +200,9 @@ flutter analyze
 | **Rate Limit Thuần Dart** | `test/core/transformers/rate_limit_test.dart` | Kiểm tra thời gian chính xác của Throttle (kèm cờ trailing) và Debounce. |
 | **Thứ tự Event Loop khớp lý thuyết** | `test/core/lab/event_lab_runner_test.dart` | Chạy thực nghiệm 6 kịch bản bằng Dart Zone, đối chiếu thứ tự Call Stack $\to$ Microtask $\to$ Event Queue. |
 | **Kiểm thử Widget & Rebuild** | `test/ui/screens/home_screen_test.dart`<br>`test/ui/widgets/elapsed_text_test.dart` | Xác nhận các thao tác UI, thanh Toolbar hàng loạt, tìm kiếm debounce và tính độc lập khi vẽ lại của `ElapsedText`. |
+
+---
+
+## Slide thuyết trình & Tài liệu báo cáo
+
+- **Slide thuyết trình báo cáo đồ án:** [multi_stopwatch.pdf](multi_stopwatch.pdf) — File slide thuyết trình chính thức của đồ án (24 trang chuẩn 16:9), bao gồm đầy đủ phân công WBS, kiến trúc phân tầng Reactive Core, thuật toán tính mốc giờ chính xác tuyệt đối, cơ chế Event Loop, kỹ thuật hủy luồng an toàn và đối chiếu 221 bài kiểm thử tự động.
